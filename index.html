@@ -1,265 +1,10 @@
-<meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Ujian Online</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.38.0/supabase.min.js"></script>
-// 1. SETUP SUPABASE CLIENT (Tambahkan di bagian atas file HTML/JS)
-// Ganti URL dan ANON_KEY dengan milik Anda dari Supabase Dashboard
-const supabaseUrl = 'YOUR_SUPABASE_URL'  // Contoh: https://xxxxx.supabase.co
-const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY'
-const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey)
-
-// 2. VARIABEL GLOBAL (Tambahkan di bagian deklarasi variabel)
-let timerSubscription = null
-let currentSessionId = null
-let isAdmin = false // Set true untuk admin yang bisa kontrol timer
-
-// 3. FUNGSI UNTUK SYNC TIMER KE SUPABASE (Tambahkan setelah fungsi timer existing)
-async function syncTimerToSupabase(timerData) {
-    if (!isAdmin) return // Hanya admin yang bisa update
-    
-    try {
-        const { error } = await supabase
-            .from('timer_sessions')
-            .upsert({
-                id: currentSessionId,
-                session_name: 'Timer Session',
-                duration: timerData.totalTime,
-                remaining_time: timerData.remainingTime,
-                is_active: timerData.isRunning,
-                started_at: timerData.startedAt,
-                updated_at: new Date().toISOString()
-            })
-        
-        if (error) throw error
-    } catch (error) {
-        console.error('Error syncing timer:', error)
-    }
-}
-
-// 4. FUNGSI UNTUK SUBSCRIBE REAL-TIME UPDATES
-function subscribeToTimer() {
-    // Unsubscribe jika sudah ada
-    if (timerSubscription) {
-        timerSubscription.unsubscribe()
-    }
-    
-    timerSubscription = supabase
-        .channel('timer_updates')
-        .on('postgres_changes', {
-            event: '*',
-            schema: 'public',
-            table: 'timer_sessions'
-        }, (payload) => {
-            console.log('Timer update received:', payload)
-            handleTimerUpdate(payload.new)
-        })
-        .subscribe()
-}
-
-// 5. FUNGSI UNTUK HANDLE UPDATE DARI SUPABASE
-function handleTimerUpdate(timerData) {
-    if (!timerData) return
-    
-    // Jangan update jika ini dari admin yang sama
-    if (isAdmin && currentSessionId === timerData.id) return
-    
-    // Update tampilan timer
-    remainingTime = timerData.remaining_time
-    totalTime = timerData.duration
-    isRunning = timerData.is_active
-    
-    // Update display
-    updateTimerDisplay()
-    
-    // Sync dengan timer local jika sedang berjalan
-    if (timerData.is_active && timerData.started_at) {
-        const startTime = new Date(timerData.started_at).getTime()
-        const now = Date.now()
-        const elapsed = Math.floor((now - startTime) / 1000)
-        
-        remainingTime = Math.max(0, timerData.duration - elapsed)
-        
-        if (remainingTime > 0) {
-            startTimer() // Mulai timer local
-        } else {
-            stopTimer() // Timer sudah selesai
-        }
-    } else {
-        stopTimer() // Stop timer local
-    }
-}
-
-// 6. MODIFIKASI FUNGSI START TIMER EXISTING
-// Ganti fungsi startTimer() yang sudah ada dengan ini:
-function startTimer() {
-    if (!isRunning) {
-        isRunning = true
-        startTime = Date.now() - (totalTime - remainingTime) * 1000
-        
-        // Sync ke Supabase jika admin
-        if (isAdmin) {
-            syncTimerToSupabase({
-                totalTime: totalTime,
-                remainingTime: remainingTime,
-                isRunning: true,
-                startedAt: new Date().toISOString()
-            })
-        }
-        
-        timer = setInterval(updateTimer, 1000)
-        updateButtons()
-    }
-}
-
-// 7. MODIFIKASI FUNGSI PAUSE TIMER EXISTING
-// Ganti fungsi pauseTimer() yang sudah ada dengan ini:
-function pauseTimer() {
-    isRunning = false
-    clearInterval(timer)
-    
-    // Sync ke Supabase jika admin
-    if (isAdmin) {
-        syncTimerToSupabase({
-            totalTime: totalTime,
-            remainingTime: remainingTime,
-            isRunning: false,
-            startedAt: null
-        })
-    }
-    
-    updateButtons()
-}
-
-// 8. MODIFIKASI FUNGSI STOP TIMER EXISTING
-// Ganti fungsi stopTimer() yang sudah ada dengan ini:
-function stopTimer() {
-    isRunning = false
-    clearInterval(timer)
-    remainingTime = totalTime
-    
-    // Sync ke Supabase jika admin
-    if (isAdmin) {
-        syncTimerToSupabase({
-            totalTime: totalTime,
-            remainingTime: totalTime,
-            isRunning: false,
-            startedAt: null
-        })
-    }
-    
-    updateTimerDisplay()
-    updateButtons()
-}
-
-// 9. MODIFIKASI FUNGSI SET TIMER EXISTING
-// Tambahkan sync ke Supabase di fungsi setTimer():
-function setTimer(minutes) {
-    totalTime = minutes * 60
-    remainingTime = totalTime
-    isRunning = false
-    clearInterval(timer)
-    
-    // Sync ke Supabase jika admin
-    if (isAdmin) {
-        syncTimerToSupabase({
-            totalTime: totalTime,
-            remainingTime: remainingTime,
-            isRunning: false,
-            startedAt: null
-        })
-    }
-    
-    updateTimerDisplay()
-    updateButtons()
-}
-
-// 10. INISIALISASI SAAT PAGE LOAD
-// Tambahkan di event DOMContentLoaded atau di akhir script:
-document.addEventListener('DOMContentLoaded', async function() {
-    // Generate session ID
-    currentSessionId = 'timer-' + Date.now()
-    
-    // Cek apakah ini admin (bisa pakai URL parameter atau login)
-    const urlParams = new URLSearchParams(window.location.search)
-    isAdmin = urlParams.get('admin') === 'true'
-    
-    // Subscribe ke real-time updates
-    subscribeToTimer()
-    
-    // Load timer state terakhir dari Supabase
-    await loadTimerState()
-    
-    // Tambahkan indikator admin jika perlu
-    if (isAdmin) {
-        document.body.insertAdjacentHTML('afterbegin', 
-            '<div style="position: fixed; top: 10px; left: 10px; background: rgba(76, 175, 80, 0.8); color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px;">ADMIN MODE</div>'
-        )
-    }
-})
-
-// 11. FUNGSI UNTUK LOAD STATE TIMER TERAKHIR
-async function loadTimerState() {
-    try {
-        const { data, error } = await supabase
-            .from('timer_sessions')
-            .select('*')
-            .order('updated_at', { ascending: false })
-            .limit(1)
-        
-        if (error) throw error
-        
-        if (data && data.length > 0) {
-            const timerData = data[0]
-            handleTimerUpdate(timerData)
-        }
-    } catch (error) {
-        console.error('Error loading timer state:', error)
-    }
-}
-
-// 12. CLEANUP SAAT PAGE UNLOAD
-window.addEventListener('beforeunload', () => {
-    if (timerSubscription) {
-        timerSubscription.unsubscribe()
-    }
-})
-
-// 13. TAMBAHAN HTML UNTUK INDIKATOR STATUS (Tambahkan di HTML)
-/*
-Tambahkan di bagian HTML untuk menampilkan status koneksi:
-
-<div id="connectionStatus" class="connection-status disconnected">
-    Connecting...
-</div>
-
-Dan tambahkan CSS:
-.connection-status {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 8px 15px;
-    border-radius: 20px;
-    font-size: 0.9rem;
-    color: white;
-    z-index: 1000;
-}
-.connected { background: rgba(76, 175, 80, 0.9); }
-.disconnected { background: rgba(244, 67, 54, 0.9); }
-*/
-
-// 14. FUNGSI UPDATE STATUS KONEKSI
-function updateConnectionStatus(connected) {
-    const statusEl = document.getElementById('connectionStatus')
-    if (statusEl) {
-        statusEl.className = `connection-status ${connected ? 'connected' : 'disconnected'}`
-        statusEl.textContent = connected ? 'Connected' : 'Disconnected'
-    }
-}
-
-// Monitor koneksi
-supabase.realtime.onOpen(() => updateConnectionStatus(true))
-supabase.realtime.onClose(() => updateConnectionStatus(false))
-supabase.realtime.onError(() => updateConnectionStatus(false))
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase/2.38.0/umd/supabase.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -271,614 +16,856 @@ supabase.realtime.onError(() => updateConnectionStatus(false))
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            margin: 0;
         }
 
         .container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-            width: 90%;
-            max-width: 1000px;
-            margin: 20px auto;
-            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
         }
 
-        .header {
-            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             padding: 20px;
             text-align: center;
         }
 
-        .nav-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 15px;
-        }
-
-        .nav-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .nav-btn:hover, .nav-btn.active {
-            background: rgba(255,255,255,0.3);
-            transform: translateY(-2px);
-        }
-
-        .section {
-            display: none;
+        .card-body {
             padding: 30px;
         }
 
-        .section.active {
-            display: block;
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin: 5px;
         }
 
-        .login-form {
-            max-width: 400px;
-            margin: 0 auto;
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00b894, #00a085);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #fdcb6e, #e17055);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
 
         .form-group {
             margin-bottom: 20px;
         }
 
-        label {
+        .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
-            color: #374151;
+            color: #333;
         }
 
-        input[type="password"], input[type="text"], input[type="number"], textarea {
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 12px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
             font-size: 16px;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s ease;
         }
 
-        input:focus, textarea:focus {
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #4f46e5;
+            border-color: #667eea;
         }
 
-        .btn {
-            background: linear-gradient(45deg, #4f46e5, #7c3aed);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: transform 0.3s;
-            width: 100%;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .btn-secondary {
-            background: #6b7280;
-            margin-top: 10px;
-        }
-
-        .timer-display {
-            font-size: 48px;
-            font-weight: bold;
+        .timer {
             text-align: center;
-            color: #dc2626;
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
             margin: 20px 0;
             padding: 20px;
-            background: #fef2f2;
-            border-radius: 10px;
-            border: 2px solid #fecaca;
+            background: #f8f9ff;
+            border-radius: 15px;
+            border: 3px solid #667eea;
         }
 
-        .timer-controls {
+        .timer.warning {
+            color: #ff6b6b;
+            border-color: #ff6b6b;
+            background: #fff8f8;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .question {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #667eea;
+        }
+
+        .question h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .options {
+            list-style: none;
+            padding: 0;
+        }
+
+        .options li {
+            margin: 10px 0;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .options li:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .options input[type="radio"] {
+            margin-right: 10px;
+            width: auto;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .nav-tabs {
             display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
-        .exam-info {
-            background: #f0f9ff;
-            padding: 20px;
+            background: #f8f9ff;
             border-radius: 10px;
-            border-left: 4px solid #3b82f6;
-            margin: 20px 0;
+            padding: 5px;
+            margin-bottom: 20px;
         }
 
-        .panel-controls {
+        .nav-tab {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .exam-list {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
+            gap: 15px;
         }
 
-        .control-card {
-            background: #f9fafb;
+        .exam-item {
+            background: #f8f9ff;
             padding: 20px;
             border-radius: 10px;
-            border: 1px solid #e5e7eb;
+            border-left: 5px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .bell-animation {
-            animation: ring 0.5s ease-in-out;
+        .exam-info h3 {
+            color: #333;
+            margin-bottom: 5px;
         }
 
-        @keyframes ring {
-            0%, 100% { transform: rotate(0deg); }
-            25% { transform: rotate(10deg); }
-            75% { transform: rotate(-10deg); }
+        .exam-info p {
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .password-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .password-form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 90%;
         }
 
         .alert {
             padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            font-weight: 500;
+            margin: 15px 0;
+            border-radius: 10px;
+            font-weight: 600;
         }
 
         .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
 
-        .alert-warning {
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fde68a;
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
-        .alert-danger {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
-        .google-form-embed {
-            width: 100%;
-            height: 600px;
-            border: none;
+        .student-info {
+            background: #f8f9ff;
+            padding: 15px;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
         }
 
-        .hidden {
-            display: none !important;
+        .student-info input {
+            max-width: 300px;
+            margin: 10px auto;
+            display: block;
+        }
+
+        .question-builder {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 2px dashed #667eea;
+        }
+
+        .question-builder input[type="text"] {
+            margin-bottom: 10px;
         }
 
         @media (max-width: 768px) {
             .container {
-                margin: 10px;
+                padding: 10px;
             }
             
-            .section {
+            .card-body {
                 padding: 20px;
             }
             
-            .timer-display {
-                font-size: 36px;
+            .timer {
+                font-size: 1.5em;
+            }
+
+            .btn-small {
+                position: static;
+                margin: 10px 0;
             }
         }
     </style>
-
-
+</head>
+<body>
     <div class="container">
-        <div class="header">
-            <h1>🎓 Sistem Ujian Online</h1>
-            <div class="nav-buttons">
-                <button class="nav-btn active" onclick="showSection('student')">Halaman Siswa</button>
-                <button class="nav-btn" onclick="showSection('teacher-login')">Panel Guru</button>
-            </div>
-        </div>
+        <!-- Admin Button -->
+        <button class="btn btn-warning btn-small" onclick="showPasswordModal()">Panel Guru</button>
 
-        
-        <div id="student" class="section active">
-            <div id="exam-waiting" class="exam-info">
-                <h2>⏳ Menunggu Ujian Dimulai</h2>
-                <p>Silakan tunggu guru memulai ujian. Timer akan muncul ketika ujian sudah dimulai.</p>
-                <div id="exam-title" style="font-size: 18px; font-weight: bold; margin-top: 10px; color: #4f46e5;">
-                    Belum ada ujian yang diset
-                </div>
-            </div>
-
-            <div id="exam-active" class="hidden">
-                <div class="exam-info">
-                    <h2 id="current-exam-title">Nama Ujian</h2>
-                    <div class="timer-display" id="timer-display">00:00:00</div>
-                    <div class="alert alert-warning" id="time-warning" style="display: none;">
-                        ⚠️ Waktu tersisa kurang dari 5 menit!
-                    </div>
-                </div>
-
-                
-                <div id="google-form-container" class="hidden">
-                    <h3>📝 Soal Ujian</h3>
-                    <iframe id="google-form-frame" class="google-form-embed" src=""></iframe>
-                </div>
-
-                <div class="alert alert-danger" id="exam-ended" style="display: none;">
-                    ⏰ Waktu ujian telah berakhir! Silakan submit jawaban Anda.
-                </div>
-            </div>
-        </div>
-
-        
-        <div id="teacher-login" class="section">
-            <div class="login-form">
-                <h2 style="text-align: center; margin-bottom: 30px;">🔐 Login Guru</h2>
+        <!-- Password Modal for Teacher Access -->
+        <div id="passwordModal" class="password-modal hidden">
+            <div class="password-form">
+                <h3 style="text-align: center; margin-bottom: 20px;">Masukkan Password Guru</h3>
                 <div class="form-group">
-                    <label for="teacher-password">Password:</label>
-                    <input type="password" id="teacher-password" placeholder="Masukkan password guru">
+                    <input type="password" id="teacherPassword" placeholder="Password" onkeypress="if(event.key==='Enter') checkPassword()">
                 </div>
-                <button class="btn" onclick="loginTeacher()">Masuk</button>
-                <div id="login-error" class="alert alert-danger" style="display: none; margin-top: 15px;">
-                    Password salah! Silakan coba lagi.
+                <button class="btn" onclick="checkPassword()" style="width: 100%;">Masuk</button>
+                <button class="btn btn-danger" onclick="hidePasswordModal()" style="width: 100%; margin-top: 10px;">Batal</button>
+                <div id="passwordAlert"></div>
+            </div>
+        </div>
+
+        <!-- Student Section (Default View) -->
+        <div id="studentSection">
+            <!-- Student Info Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Informasi Siswa</h2>
+                </div>
+                <div class="card-body">
+                    <div class="student-info">
+                        <div class="form-group">
+                            <label>Nama Siswa:</label>
+                            <input type="text" id="studentName" placeholder="Masukkan nama lengkap Anda">
+                        </div>
+                        <div class="form-group">
+                            <label>Kelas:</label>
+                            <input type="text" id="studentClass" placeholder="Contoh: XII IPA 1">
+                        </div>
+                        <div class="form-group">
+                            <label>NIS/NISN:</label>
+                            <input type="text" id="studentId" placeholder="Masukkan NIS/NISN">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Available Exams -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Ujian Tersedia</h2>
+                </div>
+                <div class="card-body">
+                    <div id="availableExams" class="exam-list"></div>
                 </div>
             </div>
         </div>
 
-        
-        <div id="teacher-panel" class="section">
-            <div class="alert alert-success">
-                ✅ Selamat datang di Panel Guru!
-            </div>
-
-            <div class="panel-controls">
-                <div class="control-card">
-                    <h3>📋 Setting Ujian</h3>
-                    <div class="form-group">
-                        <label for="exam-name">Nama Ujian:</label>
-                        <input type="text" id="exam-name" placeholder="Contoh: Ujian Matematika Kelas 10">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="exam-duration">Durasi (menit):</label>
-                        <input type="number" id="exam-duration" placeholder="Contoh: 90" min="1" max="300">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="google-form-url">Link Google Form:</label>
-                        <textarea id="google-form-url" rows="3" placeholder="https://docs.google.com/forms/d/e/1FAIpQLSe.../viewform"></textarea>
-                        <small style="color: #6b7280;">Pastikan Google Form sudah di-set untuk bisa diakses oleh semua orang</small>
-                    </div>
-
-                    <button class="btn" onclick="setExam()">Set Ujian</button>
+        <!-- Exam Taking Section -->
+        <div id="examSection" class="hidden">
+            <div class="card">
+                <div class="card-header">
+                    <h2 id="examTitle">Ujian</h2>
+                    <div id="examTimer" class="timer">00:00:00</div>
                 </div>
-
-                <div class="control-card">
-                    <h3>⏱️ Kontrol Timer</h3>
-                    <div class="timer-display" id="teacher-timer">00:00:00</div>
-                    
-                    <div class="timer-controls">
-                        <button class="btn" id="start-btn" onclick="startExam()">▶️ Mulai</button>
-                        <button class="btn btn-secondary" onclick="pauseExam()">⏸️ Pause</button>
-                        <button class="btn btn-secondary" onclick="stopExam()">⏹️ Stop</button>
+                <div class="card-body">
+                    <div id="studentInfoDisplay" class="student-info"></div>
+                    <div id="questionsContainer"></div>
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button class="btn btn-success" onclick="submitExam()">Selesaikan Ujian</button>
+                        <button class="btn btn-danger" onclick="exitExam()">Keluar dari Ujian</button>
                     </div>
-
-                    <div id="timer-status" class="alert alert-warning" style="display: none;">
-                        Timer belum diatur
-                    </div>
-                </div>
-
-                <div class="control-card">
-                    <h3>🔧 Kontrol Lainnya</h3>
-                    <button class="btn btn-secondary" onclick="ringBell()">🔔 Bunyikan Bell</button>
-                    <button class="btn btn-secondary" onclick="resetAll()" style="margin-top: 10px;">🔄 Reset Semua</button>
-                    <button class="btn btn-secondary" onclick="logout()" style="margin-top: 10px;">🚪 Logout</button>
                 </div>
             </div>
         </div>
+
+        <!-- Teacher Panel -->
+        <div id="teacherSection" class="hidden">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Panel Guru</h2>
+                    <button class="btn btn-danger" onclick="exitTeacherPanel()" style="float: right;">Keluar</button>
+                </div>
+                <div class="card-body">
+                    <div class="nav-tabs">
+                        <button class="nav-tab active" onclick="showTab('exams')">Kelola Ujian</button>
+                        <button class="nav-tab" onclick="showTab('create')">Buat Ujian</button>
+                        <button class="nav-tab" onclick="showTab('results')">Hasil Ujian</button>
+                    </div>
+
+                    <!-- Manage Exams Tab -->
+                    <div id="examsTab">
+                        <h3>Daftar Ujian</h3>
+                        <div id="examsList" class="exam-list"></div>
+                    </div>
+
+                    <!-- Create Exam Tab -->
+                    <div id="createTab" class="hidden">
+                        <h3>Buat Ujian Baru</h3>
+                        <div class="form-group">
+                            <label>Judul Ujian:</label>
+                            <input type="text" id="examTitleInput" placeholder="Masukkan judul ujian">
+                        </div>
+                        <div class="form-group">
+                            <label>Deskripsi:</label>
+                            <textarea id="examDescription" placeholder="Deskripsi ujian" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Durasi (menit):</label>
+                            <input type="number" id="examDuration" placeholder="60" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal Mulai:</label>
+                            <input type="datetime-local" id="examStartDate">
+                        </div>
+                        <div class="form-group">
+                            <label>Tanggal Berakhir:</label>
+                            <input type="datetime-local" id="examEndDate">
+                        </div>
+                        
+                        <h4>Pertanyaan</h4>
+                        <div id="questionsBuilder">
+                            <div class="question-builder">
+                                <div class="form-group">
+                                    <label>Pertanyaan 1:</label>
+                                    <textarea placeholder="Masukkan pertanyaan" rows="2"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Pilihan Jawaban:</label>
+                                    <input type="text" placeholder="Pilihan A">
+                                    <input type="text" placeholder="Pilihan B">
+                                    <input type="text" placeholder="Pilihan C">
+                                    <input type="text" placeholder="Pilihan D">
+                                </div>
+                                <div class="form-group">
+                                    <label>Jawaban Benar:</label>
+                                    <select>
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                        <option value="D">D</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn" onclick="addQuestion()">Tambah Pertanyaan</button>
+                        <button class="btn btn-success" onclick="createExam()">Buat Ujian</button>
+                    </div>
+
+                    <!-- Results Tab -->
+                    <div id="resultsTab" class="hidden">
+                        <h3>Hasil Ujian</h3>
+                        <div id="examResults"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="alerts"></div>
     </div>
 
-    
-    <audio id="bell-sound" preload="auto">
-        <source src="data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAAS9MYXZmNjAuMTYuMTAwAAAAAAAAAAAAAAAAAP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABAAAAAAAAAAA" type="audio/mpeg">
-    </audio>
-
     <script>
-        // Konfigurasi
-        const TEACHER_PASSWORD = "guru123"; // Ganti dengan password yang diinginkan
+        // Supabase Configuration
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL'; // Ganti dengan URL Supabase Anda
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY'; // Ganti dengan Anon Key Anda
         
-        // State Management
-        let examState = {
-            isActive: false,
-            isPaused: false,
-            duration: 0,
-            remainingTime: 0,
-            examName: "",
-            googleFormUrl: "",
-            interval: null
-        };
+        // Uncomment line dibawah jika sudah setup Supabase
+        // const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Navigation
-        function showSection(sectionId) {
-            // Hide all sections
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.remove('active');
-            });
-            
-            // Remove active class from all nav buttons
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected section
-            document.getElementById(sectionId).classList.add('active');
-            
-            // Add active class to clicked button
-            event.target.classList.add('active');
-        }
-
-        // Teacher Login
-        function loginTeacher() {
-            const password = document.getElementById('teacher-password').value;
-            const errorDiv = document.getElementById('login-error');
-            
-            if (password === TEACHER_PASSWORD) {
-                showSection('teacher-panel');
-                document.getElementById('teacher-password').value = '';
-                errorDiv.style.display = 'none';
-                updateTeacherTimer();
-            } else {
-                errorDiv.style.display = 'block';
-                errorDiv.textContent = 'Password salah! Silakan coba lagi.';
-            }
-        }
-
-        // Logout
-        function logout() {
-            showSection('student');
-            document.getElementById('teacher-password').value = '';
-        }
-
-        // Set Exam Configuration
-        function setExam() {
-            const examName = document.getElementById('exam-name').value.trim();
-            const duration = parseInt(document.getElementById('exam-duration').value);
-            const googleFormUrl = document.getElementById('google-form-url').value.trim();
-            
-            if (!examName || !duration || duration <= 0) {
-                alert('Silakan isi nama ujian dan durasi yang valid!');
-                return;
-            }
-            
-            examState.examName = examName;
-            examState.duration = duration * 60; // Convert to seconds
-            examState.remainingTime = examState.duration;
-            examState.googleFormUrl = googleFormUrl;
-            
-            // Update UI
-            document.getElementById('exam-title').textContent = examName;
-            document.getElementById('current-exam-title').textContent = examName;
-            document.getElementById('timer-status').style.display = 'block';
-            document.getElementById('timer-status').textContent = `Ujian "${examName}" telah diset untuk ${duration} menit`;
-            document.getElementById('timer-status').className = 'alert alert-success';
-            
-            updateTimerDisplay();
-            updateTeacherTimer();
-            
-            alert(`Ujian "${examName}" berhasil diset!`);
-        }
-
-        // Start Exam
-        function startExam() {
-            if (examState.duration <= 0) {
-                alert('Silakan set ujian terlebih dahulu!');
-                return;
-            }
-            
-            examState.isActive = true;
-            examState.isPaused = false;
-            
-            // Show exam interface to students
-            document.getElementById('exam-waiting').classList.add('hidden');
-            document.getElementById('exam-active').classList.remove('hidden');
-            
-            // Show Google Form if URL provided
-            if (examState.googleFormUrl) {
-                document.getElementById('google-form-container').classList.remove('hidden');
-                document.getElementById('google-form-frame').src = examState.googleFormUrl;
-            }
-            
-            // Start timer
-            startTimer();
-            
-            // Ring bell to notify students
-            ringBell();
-            
-            // Update UI
-            document.getElementById('start-btn').textContent = '▶️ Resume';
-        }
-
-        // Pause Exam
-        function pauseExam() {
-            if (!examState.isActive) return;
-            
-            examState.isPaused = !examState.isPaused;
-            
-            if (examState.isPaused) {
-                clearInterval(examState.interval);
-            } else {
-                startTimer();
-            }
-        }
-
-        // Stop Exam
-        function stopExam() {
-            examState.isActive = false;
-            examState.isPaused = false;
-            clearInterval(examState.interval);
-            
-            // Hide exam interface
-            document.getElementById('exam-waiting').classList.remove('hidden');
-            document.getElementById('exam-active').classList.add('hidden');
-            document.getElementById('google-form-container').classList.add('hidden');
-            document.getElementById('exam-ended').style.display = 'block';
-            
-            // Ring bell to notify end
-            ringBell();
-            
-            // Update UI
-            document.getElementById('start-btn').textContent = '▶️ Mulai';
-        }
-
-        // Reset All
-        function resetAll() {
-            if (confirm('Yakin ingin reset semua? Data ujian akan hilang.')) {
-                stopExam();
-                examState = {
-                    isActive: false,
-                    isPaused: false,
-                    duration: 0,
-                    remainingTime: 0,
-                    examName: "",
-                    googleFormUrl: "",
-                    interval: null
-                };
-                
-                // Reset UI
-                document.getElementById('exam-name').value = '';
-                document.getElementById('exam-duration').value = '';
-                document.getElementById('google-form-url').value = '';
-                document.getElementById('exam-title').textContent = 'Belum ada ujian yang diset';
-                document.getElementById('timer-status').style.display = 'none';
-                document.getElementById('exam-ended').style.display = 'none';
-                document.getElementById('time-warning').style.display = 'none';
-                
-                updateTimerDisplay();
-                updateTeacherTimer();
-            }
-        }
-
-        // Timer Functions
-        function startTimer() {
-            examState.interval = setInterval(() => {
-                if (!examState.isPaused && examState.remainingTime > 0) {
-                    examState.remainingTime--;
-                    updateTimerDisplay();
-                    updateTeacherTimer();
-                    
-                    // Warning when 5 minutes left
-                    if (examState.remainingTime === 300) {
-                        document.getElementById('time-warning').style.display = 'block';
-                        ringBell();
-                    }
-                    
-                    // Time's up
-                    if (examState.remainingTime <= 0) {
-                        stopExam();
-                    }
-                }
-            }, 1000);
-        }
-
-        function updateTimerDisplay() {
-            const display = formatTime(examState.remainingTime);
-            document.getElementById('timer-display').textContent = display;
-            
-            // Change color when time is running low
-            const timerDiv = document.getElementById('timer-display');
-            if (examState.remainingTime <= 300) { // 5 minutes
-                timerDiv.style.color = '#dc2626';
-            } else if (examState.remainingTime <= 600) { // 10 minutes
-                timerDiv.style.color = '#d97706';
-            } else {
-                timerDiv.style.color = '#059669';
-            }
-        }
-
-        function updateTeacherTimer() {
-            const display = formatTime(examState.remainingTime);
-            document.getElementById('teacher-timer').textContent = display;
-        }
-
-        function formatTime(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        // Bell Function
-        function ringBell() {
-            const bell = document.getElementById('bell-sound');
-            const container = document.querySelector('.container');
-            
-            // Visual bell animation
-            container.classList.add('bell-animation');
-            setTimeout(() => {
-                container.classList.remove('bell-animation');
-            }, 500);
-            
-            // Try to play sound (might not work due to browser autoplay policy)
-            try {
-                bell.currentTime = 0;
-                bell.play().catch(e => console.log('Audio autoplay blocked'));
-            } catch (e) {
-                console.log('Audio not supported');
-            }
-            
-            // Show visual notification
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #4f46e5;
-                color: white;
-                padding: 15px 25px;
-                border-radius: 10px;
-                font-weight: bold;
-                z-index: 1000;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            `;
-            notification.textContent = '🔔 BELL!';
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 2000);
-        }
+        const TEACHER_PASSWORD = 'guru123'; // Password untuk akses panel guru
+        let currentExam = null;
+        let examTimer = null;
+        let timeLeft = 0;
+        let questionCount = 1;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            updateTimerDisplay();
-            updateTeacherTimer();
-            
-            // Allow Enter key for login
-            document.getElementById('teacher-password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    loginTeacher();
-                }
-            });
+            loadAvailableExams();
         });
 
-        // Prevent page refresh during exam
-        window.addEventListener('beforeunload', function(e) {
-            if (examState.isActive) {
-                e.preventDefault();
-                e.returnValue = '';
-                return 'Ujian sedang berlangsung. Yakin ingin keluar?';
+        // Teacher Access Functions
+        function showPasswordModal() {
+            document.getElementById('passwordModal').classList.remove('hidden');
+            document.getElementById('teacherPassword').focus();
+        }
+
+        function hidePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+            document.getElementById('teacherPassword').value = '';
+            document.getElementById('passwordAlert').innerHTML = '';
+        }
+
+        function checkPassword() {
+            const password = document.getElementById('teacherPassword').value;
+            if (password === TEACHER_PASSWORD) {
+                hidePasswordModal();
+                showTeacherPanel();
+            } else {
+                showAlert('passwordAlert', 'Password salah!', 'error');
             }
-        });
-    </script>
+        }
+
+        function showTeacherPanel() {
+            document.getElementById('studentSection').classList.add('hidden');
+            document.getElementById('teacherSection').classList.remove('hidden');
+            loadTeacherExams();
+        }
+
+        function exitTeacherPanel() {
+            document.getElementById('teacherSection').classList.add('hidden');
+            document.getElementById('studentSection').classList.remove('hidden');
+        }
+
+        // Student Functions
+        async function loadAvailableExams() {
+            try {
+                // Jika menggunakan Supabase, uncomment code dibawah:
+                /*
+                const { data: exams, error } = await supabase
+                    .from('exams')
+                    .select('*')
+                    .eq('is_active', true);
+                if (error) throw error;
+                displayAvailableExams(exams);
+                */
+                
+                // Demo data (hapus jika sudah menggunakan Supabase)
+                const demoExams = [
+                    {
+                        id: 1,
+                        title: 'Ujian Matematika Dasar',
+                        description: 'Ujian matematika untuk kelas XII',
+                        duration: 3, // 3 menit untuk demo
+                        start_date: '2025-08-21T08:00:00',
+                        end_date: '2025-12-31T17:00:00',
+                        is_active: true
+                    },
+                    {
+                        id: 2,
+                        title: 'Ujian Bahasa Indonesia',
+                        description: 'Ujian bahasa Indonesia semester ganjil',
+                        duration: 2, // 2 menit untuk demo
+                        start_date: '2025-08-21T09:00:00',
+                        end_date: '2025-12-31T16:00:00',
+                        is_active: true
+                    }
+                ];
+                displayAvailableExams(demoExams);
+            } catch (error) {
+                console.log('Error loading exams:', error);
+                displayAvailableExams([]);
+            }
+        }
+
+        function displayAvailableExams(exams) {
+            const container = document.getElementById('availableExams');
+            container.innerHTML = '';
+
+            if (exams.length === 0) {
+                container.innerHTML = '<p style="text-align: center;">Belum ada ujian yang tersedia.</p>';
+                return;
+            }
+
+            exams.forEach(exam => {
+                const now = new Date();
+                const startDate = new Date(exam.start_date);
+                const endDate = new Date(exam.end_date);
+                const canTake = now >= startDate && now <= endDate;
+
+                const examDiv = document.createElement('div');
+                examDiv.className = 'exam-item';
+                examDiv.innerHTML = `
+                    <div class="exam-info">
+                        <h3>${exam.title}</h3>
+                        <p>${exam.description}</p>
+                        <p><strong>Durasi:</strong> ${exam.duration} menit</p>
+                        <p><strong>Mulai:</strong> ${new Date(exam.start_date).toLocaleString()}</p>
+                        <p><strong>Berakhir:</strong> ${new Date(exam.end_date).toLocaleString()}</p>
+                    </div>
+                    <div>
+                        ${canTake ? 
+                            `<button class="btn btn-success" onclick="startExam(${exam.id})">Mulai Ujian</button>` :
+                            `<span class="status-badge status-inactive">Tidak Tersedia</span>`
+                        }
+                    </div>
+                `;
+                container.appendChild(examDiv);
+            });
+        }
+
+        function validateStudentInfo() {
+            const name = document.getElementById('studentName').value.trim();
+            const studentClass = document.getElementById('studentClass').value.trim();
+            const studentId = document.getElementById('studentId').value.trim();
+
+            if (!name || !studentClass || !studentId) {
+                alert('Mohon lengkapi informasi siswa terlebih dahulu!');
+                return false;
+            }
+            return true;
+        }
+
+        async function startExam(examId) {
+            if (!validateStudentInfo()) {
+                return;
+            }
+
+            try {
+                // Demo exam data (ganti dengan query Supabase jika sudah setup)
+                const demoExams = {
+                    1: {
+                        id: 1,
+                        title: 'Ujian Matematika Dasar',
+                        duration: 3, // 3 menit untuk demo
+                        questions: [
+                            {
+                                id: 1,
+                                question: 'Berapa hasil dari 2 + 2?',
+                                option_a: '3',
+                                option_b: '4',
+                                option_c: '5',
+                                option_d: '6',
+                                correct_answer: 'B'
+                            },
+                            {
+                                id: 2,
+                                question: 'Berapa hasil dari 5 × 3?',
+                                option_a: '15',
+                                option_b: '10',
+                                option_c: '20',
+                                option_d: '8',
+                                correct_answer: 'A'
+                            },
+                            {
+                                id: 3,
+                                question: 'Berapa hasil dari 10 ÷ 2?',
+                                option_a: '3',
+                                option_b: '4',
+                                option_c: '5',
+                                option_d: '6',
+                                correct_answer: 'C'
+                            }
+                        ]
+                    },
+                    2: {
+                        id: 2,
+                        title: 'Ujian Bahasa Indonesia',
+                        duration: 2, // 2 menit untuk demo
+                        questions: [
+                            {
+                                id: 4,
+                                question: 'Siapa pengarang novel "Laskar Pelangi"?',
+                                option_a: 'Pramoedya Ananta Toer',
+                                option_b: 'Andrea Hirata',
+                                option_c: 'Habiburrahman El Shirazy',
+                                option_d: 'Tere Liye',
+                                correct_answer: 'B'
+                            },
+                            {
+                                id: 5,
+                                question: 'Apa bahasa resmi Indonesia?',
+                                option_a: 'Bahasa Jawa',
+                                option_b: 'Bahasa Melayu',
+                                option_c: 'Bahasa Indonesia',
+                                option_d: 'Bahasa Sunda',
+                                correct_answer: 'C'
+                            }
+                        ]
+                    }
+                };
+
+                currentExam = demoExams[examId];
+                if (currentExam) {
+                    showExamInterface();
+                    startTimer(currentExam.duration * 60); // Convert minutes to seconds
+                } else {
+                    alert('Ujian tidak ditemukan!');
+                }
+            } catch (error) {
+                console.log('Error starting exam:', error);
+                alert('Terjadi kesalahan saat memulai ujian.');
+            }
+        }
+
+        function showExamInterface() {
+            // Display student info
+            const name = document.getElementById('studentName').value;
+            const studentClass = document.getElementById('studentClass').value;
+            const studentId = document.getElementById('studentId').value;
+            
+            document.getElementById('studentInfoDisplay').innerHTML = `
+                <p><strong>Nama:</strong> ${name} | <strong>Kelas:</strong> ${studentClass} | <strong>NIS/NISN:</strong> ${studentId}</p>
+            `;
+
+            document.getElementById('studentSection').classList.add('hidden');
+            document.getElementById('examSection').classList.remove('hidden');
+            
+            document.getElementById('examTitle').textContent = currentExam.title;
+            displayQuestions();
+        }
+
+        function displayQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+
+            currentExam.questions.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                questionDiv.innerHTML = `
+                    <h3>${index + 1}. ${question.question}</h3>
+                    <ul class="options">
+                        <li><input type="radio" name="q${question.id}" value="A" id="q${question.id}a">
+                            <label for="q${question.id}a">A. ${question.option_a}</label></li>
+                        <li><input type="radio" name="q${question.id}" value="B" id="q${question.id}b">
+                            <label for="q${question.id}b">B. ${question.option_b}</label></li>
+                        <li><input type="radio" name="q${question.id}" value="C" id="q${question.id}c">
+                            <label for="q${question.id}c">C. ${question.option_c}</label></li>
+                        <li><input type="radio" name="q${question.id}" value="D" id="q${question.id}d">
+                            <label for="q${question.id}d">D. ${question.option_d}</label></li>
+                    </ul>
+                `;
+                container.appendChild(questionDiv);
+            });
+        }
+
+        function startTimer(duration) {
+            timeLeft = duration;
+            const timerElement = document.getElementById('examTimer');
+            
+            examTimer = setInterval(() => {
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                const seconds = timeLeft % 60;
+                
+                const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                timerElement.textContent = display;
+                
+                if (timeLeft <= 300) { // 5 minutes warning
+                    timerElement.classList.add('warning');
+                }
+                
+                if (timeLeft <= 0) {
+                    clearInterval(examTimer);
+                    submitExam();
+                }
+                
+                timeLeft--;
+            }, 1000);
+        }
+
+        async function submitExam() {
+            if (examTimer) {
+                clearInterval(examTimer);
+            }
+
+            // Get student info
+            const studentInfo = {
+                name: document.getElementById('studentName').value,
+                class: document.getElementById('studentClass').value,
+                student_id: document.getElementById('studentId').value
+            };
+
+            // Collect answers
+            const answers = {};
+            currentExam.questions.forEach(question => {
+                const selected = document.querySelector(`input[name="q${question.id}"]:checked`);
+                if (selected) {
+                    answers[question.id] = selected.value;
+                }
+            });
+
+            // Calculate score
+            let correct = 0;
+            currentExam.questions.forEach(question => {
+                if (answers[question.id] === question.correct_answer) {
+                    correct++;
+                }
+            });
+
+            const score = (correct / currentExam.questions.length) * 100;
+
+            try {
+                // Save to Supabase (uncomment jika sudah setup)
+                /*
+                const { error } = await supabase
+                    .from('exam_results')
+                    .insert([{
+                        exam_id: currentExam.id,
+                        student_name: studentInfo.name,
+                        student_class: studentInfo.class,
+                        student_id: studentInfo.student_id,
+                        answers: answers,
+                        score: score,
+                        submitted_at: new Date().toISOString()
+                    }]);
+                */
+
+                console.log('Demo mode - hasil ujian:', {
+                    exam: currentExam.title,
+                    student: studentInfo,
+                    score: score,
+                    correct: correct,
+                    total: currentExam.questions.length
+                });
+            } catch (error) {
+                console.log('Error saving result:', error);
+            }
+
+            alert(`Ujian selesai!\n\nNama: ${studentInfo.name}\nKelas: ${studentInfo.class}\nSkor: ${score.toFixed(1)}%\nJawaban benar: ${correct}/${currentExam.questions.length}`);
+            exitExam();
+        }
+
+        function exitExam() {
+            if (examTimer) {
+                clearInterval(examTimer);
+            }
+            
+            currentExam = null;
+            document.getElementById('examSection').classList.add('hidden');
+            document.getElementById('studentSection').classList.remove('hidden');
+        }
+
+        // Teacher Functions
+        function showTab(tabName) {
+            // Hide all tabs
+            document.getElementById('examsTab').classList.add('hidden');
+            document.getElementById('createTab').classList.add('hidden');
+            document.getElementById('resultsTab').classList.add('hidden');
+            
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Load appropriate data
+            if (tabName === '
