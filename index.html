@@ -1,6 +1,54 @@
-<meta charset="UTF-8">
+<!DOCTYPE html>
+<html lang="id">
+    <head><meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ujian Online - Timer Terkunci</title>
+            </head>
+    <body>
+ <!-- 1️⃣ Library Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <!-- 2️⃣ Script koneksi + Timer -->
+  <script>
+    // 🔑 Ganti dengan project kamu di Supabase
+    const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+    const SUPABASE_KEY = "YOUR-PUBLIC-ANON-KEY";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function getTimer() {
+      // Ambil data dari tabel "ujian" dengan id = 1
+      let { data, error } = await supabase
+        .from("ujian")
+        .select("end_time")
+        .eq("id", 1)
+        .single();
+
+      if (error) {
+        console.error("Gagal ambil data:", error);
+        document.getElementById("timer").innerHTML = "Error ambil data!";
+        return;
+      }
+
+      const endTime = new Date(data.end_time).getTime();
+
+      setInterval(() => {
+        const now = new Date().getTime();
+        const distance = endTime - now;
+
+        if (distance < 0) {
+          document.getElementById("timer").innerHTML = "Waktu Habis";
+        } else {
+          const minutes = Math.floor((distance % (1000*60*60)) / (1000*60));
+          const seconds = Math.floor((distance % (1000*60)) / 1000);
+          document.getElementById("timer").innerHTML =
+            minutes + "m " + seconds + "s";
+        }
+      }, 1000);
+    }
+
+    getTimer();
+  </script>
+        
     <style>
         * {
             margin: 0;
@@ -1133,4 +1181,7 @@
                 e.preventDefault();
             }
         });
+
     </script>
+    </body>
+    </html>
