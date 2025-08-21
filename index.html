@@ -868,4 +868,242 @@
             event.target.classList.add('active');
             
             // Load appropriate data
-            if (tabName === '
+            if (tabName === 'exams') {
+                loadTeacherExams();
+            } else if (tabName === 'results') {
+                loadExamResults();
+            }
+        }
+
+        async function loadTeacherExams() {
+            try {
+                // Demo data untuk ujian
+                const demoExams = [
+                    {
+                        id: 1,
+                        title: 'Ujian Matematika Dasar',
+                        description: 'Ujian matematika untuk kelas XII',
+                        duration: 3,
+                        is_active: true,
+                        start_date: '2025-08-21T08:00:00',
+                        end_date: '2025-12-31T17:00:00'
+                    },
+                    {
+                        id: 2,
+                        title: 'Ujian Bahasa Indonesia',
+                        description: 'Ujian bahasa Indonesia semester ganjil',
+                        duration: 2,
+                        is_active: true,
+                        start_date: '2025-08-21T09:00:00',
+                        end_date: '2025-12-31T16:00:00'
+                    }
+                ];
+                displayTeacherExams(demoExams);
+            } catch (error) {
+                console.log('Error loading teacher exams:', error);
+                displayTeacherExams([]);
+            }
+        }
+
+        function displayTeacherExams(exams) {
+            const container = document.getElementById('examsList');
+            container.innerHTML = '';
+
+            if (exams.length === 0) {
+                container.innerHTML = '<p>Belum ada ujian yang dibuat.</p>';
+                return;
+            }
+
+            exams.forEach(exam => {
+                const examDiv = document.createElement('div');
+                examDiv.className = 'exam-item';
+                examDiv.innerHTML = `
+                    <div class="exam-info">
+                        <h3>${exam.title}</h3>
+                        <p>${exam.description}</p>
+                        <p><strong>Durasi:</strong> ${exam.duration} menit</p>
+                        <p><strong>Mulai:</strong> ${new Date(exam.start_date).toLocaleString()}</p>
+                        <p><strong>Berakhir:</strong> ${new Date(exam.end_date).toLocaleString()}</p>
+                    </div>
+                    <div>
+                        <span class="status-badge ${exam.is_active ? 'status-active' : 'status-inactive'}">
+                            ${exam.is_active ? 'Aktif' : 'Tidak Aktif'}
+                        </span>
+                        <button class="btn" onclick="toggleExamStatus(${exam.id}, ${!exam.is_active})">
+                            ${exam.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteExam(${exam.id})">Hapus</button>
+                    </div>
+                `;
+                container.appendChild(examDiv);
+            });
+        }
+
+        function toggleExamStatus(examId, newStatus) {
+            showAlert('alerts', `Ujian berhasil ${newStatus ? 'diaktifkan' : 'dinonaktifkan'} (Demo Mode)`, 'success');
+            loadTeacherExams();
+        }
+
+        function deleteExam(examId) {
+            if (confirm('Apakah Anda yakin ingin menghapus ujian ini?')) {
+                showAlert('alerts', 'Ujian berhasil dihapus (Demo Mode)', 'success');
+                loadTeacherExams();
+            }
+        }
+
+        function addQuestion() {
+            questionCount++;
+            const questionsBuilder = document.getElementById('questionsBuilder');
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question-builder';
+            questionDiv.innerHTML = `
+                <div class="form-group">
+                    <label>Pertanyaan ${questionCount}:</label>
+                    <textarea placeholder="Masukkan pertanyaan" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Pilihan Jawaban:</label>
+                    <input type="text" placeholder="Pilihan A">
+                    <input type="text" placeholder="Pilihan B">
+                    <input type="text" placeholder="Pilihan C">
+                    <input type="text" placeholder="Pilihan D">
+                </div>
+                <div class="form-group">
+                    <label>Jawaban Benar:</label>
+                    <select>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-danger" onclick="removeQuestion(this)">Hapus Pertanyaan</button>
+            `;
+            questionsBuilder.appendChild(questionDiv);
+        }
+
+        function removeQuestion(button) {
+            const questionDiv = button.closest('.question-builder');
+            questionDiv.remove();
+        }
+
+        function createExam() {
+            const title = document.getElementById('examTitleInput').value;
+            const description = document.getElementById('examDescription').value;
+            const duration = document.getElementById('examDuration').value;
+            const startDate = document.getElementById('examStartDate').value;
+            const endDate = document.getElementById('examEndDate').value;
+
+            if (!title || !description || !duration || !startDate || !endDate) {
+                showAlert('alerts', 'Mohon lengkapi semua field!', 'error');
+                return;
+            }
+
+            // Collect questions
+            const questionBuilders = document.querySelectorAll('.question-builder');
+            const questions = [];
+            
+            questionBuilders.forEach((builder, index) => {
+                const questionText = builder.querySelector('textarea').value;
+                const options = builder.querySelectorAll('input[type="text"]');
+                const correctAnswer = builder.querySelector('select').value;
+
+                if (questionText && options[0].value && options[1].value && options[2].value && options[3].value) {
+                    questions.push({
+                        question: questionText,
+                        option_a: options[0].value,
+                        option_b: options[1].value,
+                        option_c: options[2].value,
+                        option_d: options[3].value,
+                        correct_answer: correctAnswer
+                    });
+                }
+            });
+
+            if (questions.length === 0) {
+                showAlert('alerts', 'Minimal harus ada 1 pertanyaan lengkap!', 'error');
+                return;
+            }
+
+            // In demo mode, just show success
+            showAlert('alerts', `Ujian "${title}" berhasil dibuat dengan ${questions.length} pertanyaan! (Demo Mode)`, 'success');
+            
+            // Clear form
+            document.getElementById('examTitleInput').value = '';
+            document.getElementById('examDescription').value = '';
+            document.getElementById('examDuration').value = '';
+            document.getElementById('examStartDate').value = '';
+            document.getElementById('examEndDate').value = '';
+            
+            // Reset questions
+            document.getElementById('questionsBuilder').innerHTML = `
+                <div class="question-builder">
+                    <div class="form-group">
+                        <label>Pertanyaan 1:</label>
+                        <textarea placeholder="Masukkan pertanyaan" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Pilihan Jawaban:</label>
+                        <input type="text" placeholder="Pilihan A">
+                        <input type="text" placeholder="Pilihan B">
+                        <input type="text" placeholder="Pilihan C">
+                        <input type="text" placeholder="Pilihan D">
+                    </div>
+                    <div class="form-group">
+                        <label>Jawaban Benar:</label>
+                        <select>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            questionCount = 1;
+        }
+
+        function loadExamResults() {
+            const container = document.getElementById('examResults');
+            container.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>Demo Mode:</strong> Dalam mode demo, hasil ujian tidak tersimpan secara permanen.
+                    Untuk melihat hasil yang sesungguhnya, silakan setup koneksi ke Supabase.
+                </div>
+                <div class="exam-item">
+                    <div class="exam-info">
+                        <h3>Ujian Matematika Dasar</h3>
+                        <p>Total Peserta: 5 siswa</p>
+                        <p>Rata-rata Skor: 75.5%</p>
+                        <p>Skor Tertinggi: 95%</p>
+                        <p>Skor Terendah: 55%</p>
+                    </div>
+                    <div>
+                        <button class="btn" onclick="viewDetailResults(1)">Lihat Detail</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function viewDetailResults(examId) {
+            alert('Fitur detail hasil akan tersedia setelah setup Supabase database.');
+        }
+
+        // Utility function for showing alerts
+        function showAlert(containerId, message, type) {
+            const container = document.getElementById(containerId);
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = message;
+            container.appendChild(alertDiv);
+            
+            // Auto remove alert after 3 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
