@@ -2,6 +2,344 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Ujian Online</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.38.0/supabase.min.js"></script>
+// 1. SETUP SUPABASE - PASTIKAN INI BENAR
+const supabaseUrl = 'https://YOUR_PROJECT.supabase.co'  // Ganti dengan URL Anda
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'  // Ganti dengan key Anda
+const { createClient } = supabase  // Pastikan ini ada
+const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
+
+// 2. DEBUGGING VARIABLES
+let timerSubscription = null
+let currentSessionId = 'global-timer'  // Fixed ID untuk semua user
+let isAdmin = false
+let debugMode = true  // Set true untuk lihat log
+
+// 3. DEBUG FUNCTION
+function debugLog(message, data = null) {
+    if (debugMode) {
+        console.log(`[TIMER DEBUG] ${message}`, data)
+        // Tampilkan di halaman juga
+        const debugEl = document.getElementById('debug-info')
+        if (debugEl) {
+            debugEl.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`
+            debugEl.scrollTop = debugEl.scrollHeight
+        }
+    }
+}
+
+// 4. TEST KONEKSI SUPABASE
+async function testSupabaseConnection() {
+    debugLog('Testing Supabase connection...')
+    try {
+        const { data, error } = await supabaseClient
+            .from('timer_sessions')
+            .select('count(*)')
+            .limit(1)
+        
+        if (error) {
+            debugLog('Supabase connection ERROR:', error)
+            return false
+        } else {
+            debugLog('Supabase connection SUCCESS')
+            return true
+        }
+    } catch (err) {
+        debugLog('Supabase connection FAILED:', err)
+        return false
+    }
+}
+
+// 5. SYNC TIMER KE SUPABASE (ADMIN ONLY)
+async function syncTimerToSupabase(timerData) {
+    if (!isAdmin) {
+        debugLog('Not admin, skipping sync')
+        return
+    }
+    
+    debugLog('Syncing timer to Supabase:', timerData)
+    
+    try {
+        const payload = {
+            id: currentSessionId,
+            session_name: 'Global Timer',
+            duration: timerData.totalTime || 0,
+            remaining_time: timerData.remainingTime || 0,
+            is_active: timerData.isRunning || false,
+            started_at: timerData.isRunning ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString()
+        }
+        
+        debugLog('Payload to sync:', payload)
+        
+        const { data, error } = await supabaseClient
+            .from('timer_sessions')
+            .upsert(payload)
+            .select()
+        
+        if (error) {
+            debugLog('Sync ERROR:', error)
+        } else {
+            debugLog('Sync SUCCESS:', data)
+        }
+    } catch (err) {
+        debugLog('Sync EXCEPTION:', err)
+    }
+}
+
+// 6. SUBSCRIBE KE REAL-TIME UPDATES
+function subscribeToTimer() {
+    debugLog('Setting up real-time subscription...')
+    
+    // Unsubscribe existing
+    if (timerSubscription) {
+        timerSubscription.unsubscribe()
+    }
+    
+    timerSubscription = supabaseClient
+        .channel('timer-channel')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'timer_sessions',
+            filter: `id=eq.${currentSessionId}`
+        }, (payload) => {
+            debugLog('Real-time update received:', payload)
+            
+            if (payload.new) {
+                handleTimerUpdate(payload.new)
+            }
+        })
+        .subscribe((status) => {
+            debugLog('Subscription status:', status)
+            updateConnectionStatus(status === 'SUBSCRIBED')
+        })
+}
+
+// 7. HANDLE UPDATE DARI SUPABASE
+function handleTimerUpdate(timerData) {
+    debugLog('Processing timer update:', timerData)
+    
+    if (!timerData) return
+    
+    // Jangan update jika ini dari admin yang sama (mencegah loop)
+    if (isAdmin) {
+        debugLog('Admin ignoring own update')
+        return
+    }
+    
+    // Update global timer variables (sesuaikan dengan variable di kode Anda)
+    const newRemainingTime = timerData.remaining_time
+    const newTotalTime = timerData.duration
+    const newIsRunning = timerData.is_active
+    
+    debugLog('Updating local timer:', {
+        remaining: newRemainingTime,
+        total: newTotalTime,
+        running: newIsRunning
+    })
+    
+    // Update tampilan - SESUAIKAN NAMA VARIABLE DENGAN KODE ANDA
+    if (typeof remainingTime !== 'undefined') remainingTime = newRemainingTime
+    if (typeof totalTime !== 'undefined') totalTime = newTotalTime
+    if (typeof isRunning !== 'undefined') isRunning = newIsRunning
+    
+    // Update tampilan timer - SESUAIKAN NAMA FUNGSI DENGAN KODE ANDA
+    if (typeof updateTimerDisplay === 'function') {
+        updateTimerDisplay()
+    }
+    if (typeof updateButtons === 'function') {
+        updateButtons()
+    }
+    
+    // Start/stop timer sesuai state
+    if (newIsRunning && timerData.started_at) {
+        // Hitung waktu yang sudah berlalu
+        const startTime = new Date(timerData.started_at).getTime()
+        const now = Date.now()
+        const elapsed = Math.floor((now - startTime) / 1000)
+        const calculatedRemaining = Math.max(0, newTotalTime - elapsed)
+        
+        debugLog('Calculated remaining time:', calculatedRemaining)
+        
+        if (typeof remainingTime !== 'undefined') remainingTime = calculatedRemaining
+        
+        if (calculatedRemaining > 0 && !isRunning) {
+            debugLog('Starting local timer')
+            // Start timer - SESUAIKAN DENGAN FUNGSI TIMER ANDA
+            if (typeof startLocalTimer === 'function') {
+                startLocalTimer()
+            }
+        }
+    } else if (!newIsRunning) {
+        debugLog('Stopping local timer')
+        // Stop timer - SESUAIKAN DENGAN FUNGSI TIMER ANDA
+        if (typeof stopLocalTimer === 'function') {
+            stopLocalTimer()
+        }
+    }
+}
+
+// 8. MODIFIKASI FUNGSI TIMER EXISTING - TAMBAHKAN SYNC
+function startTimer() {
+    debugLog('Start timer called')
+    
+    // Kode start timer existing Anda...
+    isRunning = true
+    // ... kode lainnya
+    
+    // TAMBAHKAN INI: Sync ke Supabase
+    if (isAdmin) {
+        syncTimerToSupabase({
+            totalTime: totalTime,
+            remainingTime: remainingTime,
+            isRunning: true
+        })
+    }
+}
+
+function pauseTimer() {
+    debugLog('Pause timer called')
+    
+    // Kode pause timer existing Anda...
+    isRunning = false
+    // ... kode lainnya
+    
+    // TAMBAHKAN INI: Sync ke Supabase
+    if (isAdmin) {
+        syncTimerToSupabase({
+            totalTime: totalTime,
+            remainingTime: remainingTime,
+            isRunning: false
+        })
+    }
+}
+
+function stopTimer() {
+    debugLog('Stop timer called')
+    
+    // Kode stop timer existing Anda...
+    isRunning = false
+    remainingTime = totalTime
+    // ... kode lainnya
+    
+    // TAMBAHKAN INI: Sync ke Supabase
+    if (isAdmin) {
+        syncTimerToSupabase({
+            totalTime: totalTime,
+            remainingTime: remainingTime,
+            isRunning: false
+        })
+    }
+}
+
+// 9. LOAD TIMER STATE TERAKHIR
+async function loadInitialTimerState() {
+    debugLog('Loading initial timer state...')
+    
+    try {
+        const { data, error } = await supabaseClient
+            .from('timer_sessions')
+            .select('*')
+            .eq('id', currentSessionId)
+            .single()
+        
+        if (error && error.code !== 'PGRST116') {  // PGRST116 = no rows returned
+            debugLog('Load state ERROR:', error)
+            return
+        }
+        
+        if (data) {
+            debugLog('Found existing timer state:', data)
+            handleTimerUpdate(data)
+        } else {
+            debugLog('No existing timer state found')
+        }
+    } catch (err) {
+        debugLog('Load state EXCEPTION:', err)
+    }
+}
+
+// 10. UPDATE CONNECTION STATUS
+function updateConnectionStatus(connected) {
+    const statusEl = document.getElementById('connection-status')
+    if (statusEl) {
+        statusEl.className = `connection-status ${connected ? 'connected' : 'disconnected'}`
+        statusEl.textContent = connected ? 'Terhubung' : 'Terputus'
+    }
+    debugLog(`Connection status: ${connected ? 'Connected' : 'Disconnected'}`)
+}
+
+// 11. INITIALIZATION
+document.addEventListener('DOMContentLoaded', async function() {
+    debugLog('DOM Content Loaded - Initializing...')
+    
+    // Cek admin mode
+    const urlParams = new URLSearchParams(window.location.search)
+    isAdmin = urlParams.get('admin') === 'true'
+    debugLog(`Admin mode: ${isAdmin}`)
+    
+    // Test connection
+    const connectionOK = await testSupabaseConnection()
+    if (!connectionOK) {
+        alert('Tidak bisa connect ke Supabase! Cek kredensial.')
+        return
+    }
+    
+    // Load initial state
+    await loadInitialTimerState()
+    
+    // Subscribe to updates
+    subscribeToTimer()
+    
+    // Add admin indicator
+    if (isAdmin) {
+        document.body.insertAdjacentHTML('afterbegin', 
+            '<div style="position: fixed; top: 10px; left: 10px; background: #4CAF50; color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; z-index: 9999;">🔑 ADMIN</div>'
+        )
+    }
+    
+    debugLog('Initialization complete')
+})
+
+// 12. CLEANUP
+window.addEventListener('beforeunload', () => {
+    debugLog('Page unloading - cleaning up...')
+    if (timerSubscription) {
+        timerSubscription.unsubscribe()
+    }
+})
+
+// 13. TAMBAHKAN HTML UNTUK DEBUG (COPY PASTE KE HTML ANDA)
+/*
+Tambahkan ini di HTML untuk debugging:
+
+<!-- Connection Status -->
+<div id="connection-status" class="connection-status disconnected">
+    Connecting...
+</div>
+
+<!-- Debug Panel (bisa dihapus setelah jalan) -->
+<div id="debug-panel" style="position: fixed; bottom: 10px; left: 10px; width: 300px; height: 200px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 10px; font-size: 12px; overflow: hidden; z-index: 9999;">
+    <div style="font-weight: bold; margin-bottom: 10px;">Debug Info:</div>
+    <div id="debug-info" style="height: 160px; overflow-y: auto;"></div>
+</div>
+
+<!-- CSS untuk status -->
+<style>
+.connection-status {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 8px 15px;
+    border-radius: 20px;
+    color: white;
+    font-size: 14px;
+    z-index: 9999;
+}
+.connected { background: #4CAF50; }
+.disconnected { background: #f44336; }
+</style>
+
     <style>
         * {
             margin: 0;
@@ -624,4 +962,5 @@
             }
         });
     </script>
+
 
