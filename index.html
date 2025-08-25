@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Ujian Online</title>
+    <title>Ujian Online - Anti Cheating</title>
     <style>
         * {
             margin: 0;
@@ -15,1089 +15,779 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            overflow: hidden; /* Prevent scrolling when locked */
+        }
+
+        /* Setup Screen */
+        .setup-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0;
-            margin: 0;
-        }
-
-        .container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-            width: 90%;
-            max-width: 1000px;
-            margin: 20px auto;
-            position: relative;
-        }
-
-        .header {
-            background: linear-gradient(45deg, #4f46e5, #7c3aed);
-            color: white;
+            min-height: 100vh;
             padding: 20px;
+        }
+
+        .setup-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
             text-align: center;
         }
 
-        .nav-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 15px;
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 10px;
         }
 
-        .nav-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            transition: all 0.3s;
+        .title {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
 
-        .nav-btn:hover, .nav-btn.active {
-            background: rgba(255,255,255,0.3);
-            transform: translateY(-2px);
-        }
-
-        .section {
-            display: none;
-            padding: 30px;
-        }
-
-        .section.active {
-            display: block;
-        }
-
-        .login-form {
-            max-width: 400px;
-            margin: 0 auto;
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
         }
 
         .form-group {
             margin-bottom: 20px;
+            text-align: left;
         }
 
-        label {
+        .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
             font-weight: 600;
-            color: #374151;
+            color: #333;
         }
 
-        input[type="password"], input[type="text"], input[type="number"], textarea {
+        .form-group input, .form-group textarea {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
             font-size: 16px;
             transition: border-color 0.3s;
         }
 
-        input:focus, textarea:focus {
+        .form-group input:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #4f46e5;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .duration-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .duration-option {
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .duration-option:hover {
+            border-color: #667eea;
+            background: #f8faff;
+        }
+
+        .duration-option.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea20, #764ba220);
+            color: #667eea;
         }
 
         .btn {
-            background: linear-gradient(45deg, #4f46e5, #7c3aed);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-size: 16px;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 18px;
+            font-weight: 600;
             cursor: pointer;
-            transition: transform 0.3s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
             width: 100%;
+            margin-top: 20px;
         }
 
         .btn:hover {
             transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
-        .btn-secondary {
-            background: #6b7280;
-            margin-top: 10px;
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
-        .btn-danger {
-            background: linear-gradient(45deg, #dc2626, #b91c1c);
-        }
-
-        .timer-display {
-            font-size: 48px;
-            font-weight: bold;
-            text-align: center;
-            color: #dc2626;
-            margin: 20px 0;
-            padding: 20px;
-            background: #fef2f2;
-            border-radius: 10px;
-            border: 2px solid #fecaca;
-        }
-
-        .timer-controls {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin: 20px 0;
-        }
-
-        .exam-info {
-            background: #f0f9ff;
-            padding: 20px;
-            border-radius: 10px;
-            border-left: 4px solid #3b82f6;
-            margin: 20px 0;
-        }
-
-        .panel-controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .control-card {
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 10px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .bell-animation {
-            animation: ring 0.5s ease-in-out;
-        }
-
-        @keyframes ring {
-            0%, 100% { transform: rotate(0deg); }
-            25% { transform: rotate(10deg); }
-            75% { transform: rotate(-10deg); }
-        }
-
-        .alert {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            font-weight: 500;
-        }
-
-        .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-        }
-
-        .alert-warning {
-            background: #fef3c7;
-            color: #92400e;
-            border: 1px solid #fde68a;
-        }
-
-        .alert-danger {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
-        }
-
-        .google-form-embed {
-            width: 100%;
-            height: 600px;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Anti-cheat status indicators */
-        .status-indicators {
-            display: flex;
-            gap: 15px;
-            justify-content: center;
-            margin: 15px 0;
-            flex-wrap: wrap;
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.1);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #4CAF50;
-        }
-
-        .status-dot.warning {
-            background: #ff9800;
-            animation: pulse 1s infinite;
-        }
-
-        .status-dot.danger {
-            background: #f44336;
-            animation: pulse 0.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .warning-overlay {
+        /* Exam Screen */
+        .exam-container {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(244, 67, 54, 0.9);
-            color: white;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            z-index: 9999;
         }
 
-        .warning-overlay.show {
-            display: flex;
-        }
-
-        .warning-content {
-            text-align: center;
-            padding: 40px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
+        .exam-header {
+            background: rgba(255,255,255,0.95);
             backdrop-filter: blur(10px);
-            max-width: 500px;
-        }
-
-        .violation-count {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            display: inline-block;
-            font-size: 1.2rem;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10000;
         }
 
         .student-info {
-            background: #f0f9ff;
-            padding: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #3b82f6;
-            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
         }
 
-        .fullscreen-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(76, 175, 80, 0.9);
-            backdrop-filter: blur(10px);
-            padding: 10px 15px;
-            border-radius: 8px;
-            border: none;
+        .timer {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
             color: white;
-            cursor: pointer;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.4);
+            animation: pulse 2s infinite;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .timer.warning {
+            background: linear-gradient(135deg, #ff9ff3, #f368e0);
+            animation: fastPulse 1s infinite;
+        }
+
+        .timer.danger {
+            background: linear-gradient(135deg, #ff3b3b, #c44569);
+            animation: fastPulse 0.5s infinite;
+        }
+
+        @keyframes fastPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .exam-content {
+            height: calc(100vh - 80px);
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .exam-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 0 auto;
+            max-width: 1000px;
+            height: calc(100vh - 120px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-title {
+            font-size: 24px;
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .form-instructions {
+            background: #f8faff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
             font-size: 14px;
         }
 
-        @media (max-width: 768px) {
-            .container {
-                margin: 10px;
-            }
-            
-            .section {
-                padding: 20px;
-            }
-            
-            .timer-display {
-                font-size: 36px;
-            }
+        .google-form-container {
+            flex: 1;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
 
-            .status-indicators {
-                flex-direction: column;
-                align-items: center;
-            }
+        .google-form-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* Anti-Cheating Overlay */
+        .anti-cheat-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(220, 38, 38, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 99999;
+            color: white;
+            text-align: center;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .warning-icon {
+            font-size: 8rem;
+            margin-bottom: 30px;
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+        }
+
+        .warning-title {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .warning-message {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+            max-width: 600px;
+        }
+
+        .warning-counter {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #fbbf24;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.8);
+            z-index: 100000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+            margin: 20px;
+        }
+
+        .modal-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .success-icon { color: #10b981; }
+        .warning-icon-modal { color: #f59e0b; }
+        .danger-icon { color: #ef4444; }
+
+        /* Fullscreen styles */
+        body.exam-mode {
+            overflow: hidden;
+        }
+
+        /* Hide scrollbars completely */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎓 Sistem Ujian Online</h1>
-            <div class="nav-buttons">
-                <button class="nav-btn active" onclick="showSection('student')">Halaman Siswa</button>
-                <button class="nav-btn" onclick="showSection('teacher-login')">Panel Guru</button>
-            </div>
-        </div>
-
-        <!-- Student Section -->
-        <div id="student" class="section active">
-            <!-- Student Info Form -->
-            <div id="student-setup" class="student-info">
-                <h3>📝 Informasi Siswa</h3>
+    <!-- Setup Screen -->
+    <div class="setup-container" id="setup-screen">
+        <div class="setup-card">
+            <div class="logo">🔒</div>
+            <div class="title">Ujian Online</div>
+            <div class="subtitle">Anti-Cheating System</div>
+            
+            <form id="setup-form">
                 <div class="form-group">
-                    <label for="student-name">Nama Lengkap:</label>
-                    <input type="text" id="student-name" placeholder="Masukkan nama lengkap Anda">
+                    <label>Nama Lengkap:</label>
+                    <input type="text" id="student-name" placeholder="Masukkan nama lengkap" required>
                 </div>
-                <button class="btn" onclick="registerStudent()">Daftar Ujian</button>
-            </div>
-
-            <!-- Waiting State -->
-            <div id="exam-waiting" class="exam-info">
-                <h2>⏳ Menunggu Ujian Dimulai</h2>
-                <p>Silakan tunggu guru memulai ujian. Timer akan muncul ketika ujian sudah dimulai.</p>
-                <div id="exam-title" style="font-size: 18px; font-weight: bold; margin-top: 10px; color: #4f46e5;">
-                    Belum ada ujian yang diset
-                </div>
-            </div>
-
-            <!-- Active Exam -->
-            <div id="exam-active" class="hidden">
-                <!-- Anti-cheat Status Indicators -->
-                <div class="status-indicators">
-                    <div class="status-item">
-                        <div class="status-dot" id="focus-status"></div>
-                        <span>Focus Mode</span>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-dot" id="fullscreen-status"></div>
-                        <span>Fullscreen</span>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-dot" id="tab-status"></div>
-                        <span>Tab Active</span>
-                    </div>
-                </div>
-
-                <div class="exam-info">
-                    <h2 id="current-exam-title">Nama Ujian</h2>
-                    <div class="timer-display" id="timer-display">00:00:00</div>
-                    <div class="alert alert-warning" id="time-warning" style="display: none;">
-                        ⚠️ Waktu tersisa kurang dari 5 menit!
-                    </div>
-                </div>
-
-                <!-- Google Form Container -->
-                <div id="google-form-container" class="hidden">
-                    <h3>📝 Soal Ujian</h3>
-                    <iframe id="google-form-frame" class="google-form-embed" src=""></iframe>
-                </div>
-
-                <!-- End Exam Button -->
-                <div style="text-align: center; margin-top: 20px;">
-                    <button class="btn btn-danger" onclick="endExamManually()">🏁 Akhiri Ujian</button>
-                </div>
-
-                <div class="alert alert-danger" id="exam-ended" style="display: none;">
-                    ⏰ Waktu ujian telah berakhir! Silakan submit jawaban Anda.
-                </div>
-            </div>
-        </div>
-
-        <!-- Teacher Login -->
-        <div id="teacher-login" class="section">
-            <div class="login-form">
-                <h2 style="text-align: center; margin-bottom: 30px;">🔐 Login Guru</h2>
+                
                 <div class="form-group">
-                    <label for="teacher-password">Password:</label>
-                    <input type="password" id="teacher-password" placeholder="Masukkan password guru">
+                    <label>Link Google Form:</label>
+                    <textarea id="google-form-url" placeholder="https://docs.google.com/forms/d/e/..." required></textarea>
+                    <small style="color: #666;">Paste link Google Form yang akan digunakan untuk ujian</small>
                 </div>
-                <button class="btn" onclick="loginTeacher()">Masuk</button>
-                <div id="login-error" class="alert alert-danger" style="display: none; margin-top: 15px;">
-                    Password salah! Silakan coba lagi.
+                
+                <div class="form-group">
+                    <label>Durasi Ujian:</label>
+                    <div class="duration-grid">
+                        <div class="duration-option" onclick="selectDuration(30)">
+                            <div style="font-size: 20px;">30</div>
+                            <div style="font-size: 12px;">menit</div>
+                        </div>
+                        <div class="duration-option" onclick="selectDuration(60)">
+                            <div style="font-size: 20px;">60</div>
+                            <div style="font-size: 12px;">menit</div>
+                        </div>
+                        <div class="duration-option" onclick="selectDuration(90)">
+                            <div style="font-size: 20px;">90</div>
+                            <div style="font-size: 12px;">menit</div>
+                        </div>
+                        <div class="duration-option" onclick="selectDuration(120)">
+                            <div style="font-size: 20px;">120</div>
+                            <div style="font-size: 12px;">menit</div>
+                        </div>
+                        <div class="duration-option" onclick="selectDuration(150)">
+                            <div style="font-size: 20px;">150</div>
+                            <div style="font-size: 12px;">menit</div>
+                        </div>
+                        <div class="duration-option" onclick="selectDuration(180)">
+                            <div style="font-size: 20px;">180</div>
+                            <div style="font-size: 12px;">menit</div>
+                        </div>
+                    </div>
                 </div>
+                
+                <button type="submit" class="btn">🚀 Mulai Ujian</button>
+            </form>
+            
+            <div style="margin-top: 20px; font-size: 14px; color: #666;">
+                ⚠️ <strong>Peringatan:</strong> Setelah mulai ujian, Anda tidak bisa keluar dari halaman ini atau membuka tab/aplikasi lain sampai ujian selesai.
             </div>
         </div>
+    </div>
 
-        <!-- Teacher Panel -->
-        <div id="teacher-panel" class="section">
-            <div class="alert alert-success">
-                ✅ Selamat datang di Panel Guru!
+    <!-- Exam Screen -->
+    <div class="exam-container" id="exam-screen">
+        <div class="exam-header">
+            <div class="student-info">
+                <span id="exam-student-name">Nama Siswa</span> | 
+                <span>Durasi: <span id="exam-duration-display">60</span> menit</span>
             </div>
-
-            <div class="panel-controls">
-                <div class="control-card">
-                    <h3>📋 Setting Ujian</h3>
-                    <div class="form-group">
-                        <label for="exam-name">Nama Ujian:</label>
-                        <input type="text" id="exam-name" placeholder="Contoh: Ujian Matematika Kelas 10">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="exam-duration">Durasi (menit):</label>
-                        <input type="number" id="exam-duration" placeholder="Contoh: 90" min="1" max="300">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="google-form-url">Link Google Form:</label>
-                        <textarea id="google-form-url" rows="3" placeholder="https://docs.google.com/forms/d/e/1FAIpQLSe.../viewform"></textarea>
-                        <small style="color: #6b7280;">Pastikan Google Form sudah di-set untuk bisa diakses oleh semua orang</small>
-                    </div>
-
-                    <button class="btn" onclick="setExam()">Set Ujian</button>
+            <div class="timer" id="timer">
+                <span id="timer-display">01:00:00</span>
+            </div>
+        </div>
+        
+        <div class="exam-content">
+            <div class="exam-card">
+                <div class="form-title">📝 Soal Ujian</div>
+                
+                <div class="form-instructions">
+                    <strong>Petunjuk Ujian:</strong><br>
+                    • Timer akan berjalan terus, tidak bisa dihentikan<br>
+                    • Jangan coba keluar dari fullscreen atau ganti tab<br>
+                    • Ujian akan otomatis berakhir ketika waktu habis<br>
+                    • Pastikan submit jawaban sebelum waktu habis
                 </div>
-
-                <div class="control-card">
-                    <h3>⏱️ Kontrol Timer</h3>
-                    <div class="timer-display" id="teacher-timer">00:00:00</div>
-                    
-                    <div class="timer-controls">
-                        <button class="btn" id="start-btn" onclick="startExam()">▶️ Mulai</button>
-                        <button class="btn btn-secondary" onclick="pauseExam()">⏸️ Pause</button>
-                        <button class="btn btn-secondary" onclick="stopExam()">⏹️ Stop</button>
-                    </div>
-
-                    <div id="timer-status" class="alert alert-warning" style="display: none;">
-                        Timer belum diatur
-                    </div>
-                </div>
-
-                <div class="control-card">
-                    <h3>🔧 Kontrol Lainnya</h3>
-                    <button class="btn btn-secondary" onclick="ringBell()">🔔 Bunyikan Bell</button>
-                    <button class="btn btn-secondary" onclick="resetAll()" style="margin-top: 10px;">🔄 Reset Semua</button>
-                    <button class="btn btn-secondary" onclick="logout()" style="margin-top: 10px;">🚪 Logout</button>
+                
+                <div class="google-form-container">
+                    <iframe id="google-form-frame" class="google-form-frame" src="about:blank"></iframe>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Fullscreen Button -->
-    <button class="fullscreen-btn" id="fullscreen-btn" onclick="toggleFullscreen()" style="display: none;">
-        🔳 Fullscreen
-    </button>
-
-    <!-- Anti-cheat Warning Overlay -->
-    <div class="warning-overlay" id="warning-overlay">
-        <div class="warning-content">
-            <h2>⚠️ PERINGATAN!</h2>
-            <p id="warning-message">Anda telah melanggar aturan ujian!</p>
-            <div class="violation-count">
-                Pelanggaran: <span id="violation-count">1</span>/3
-            </div>
-            <p>Klik tombol di bawah untuk melanjutkan ujian</p>
-            <button class="btn" onclick="hideWarning()" style="margin-top: 20px; width: auto; padding: 10px 30px;">
-                ✅ Kembali ke Ujian
-            </button>
+    <!-- Anti-Cheat Warning Overlay -->
+    <div class="anti-cheat-overlay" id="cheat-warning">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-title">PERINGATAN!</div>
+        <div class="warning-message">
+            Terdeteksi aktivitas mencurigakan!<br>
+            Anda mencoba keluar dari mode ujian.<br>
+            Pelanggaran: <span id="violation-count">1</span>/3
+        </div>
+        <div class="warning-counter">
+            Kembali ke ujian dalam: <span id="warning-countdown">10</span> detik
         </div>
     </div>
 
-    <!-- Audio for bell -->
-    <audio id="bell-sound" preload="auto">
-        <source src="data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAAS9MYXZmNjAuMTYuMTAwAAAAAAAAAAAAAAAAAP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABP/7kGQAAP8AAGkAAAAIAAANIAAAAQAAAaQAAAAgAAA0gAAABAAAAAAAAAAA" type="audio/mpeg">
-    </audio>
+    <!-- Finish Modal -->
+    <div class="modal" id="finish-modal">
+        <div class="modal-content">
+            <div class="modal-icon success-icon">✅</div>
+            <h2>Ujian Selesai!</h2>
+            <p>Waktu ujian telah berakhir atau Anda telah menyelesaikan ujian.</p>
+            <button class="btn" onclick="exitExam()" style="margin-top: 20px;">Keluar dari Ujian</button>
+        </div>
+    </div>
+
+    <!-- Disqualified Modal -->
+    <div class="modal" id="disqualified-modal">
+        <div class="modal-content">
+            <div class="modal-icon danger-icon">❌</div>
+            <h2>Ujian Dibatalkan!</h2>
+            <p>Anda telah melakukan terlalu banyak pelanggaran.<br>Ujian dibatalkan secara otomatis.</p>
+            <button class="btn" onclick="exitExam()" style="margin-top: 20px; background: #ef4444;">Keluar</button>
+        </div>
+    </div>
 
     <script>
-        // Konfigurasi
-        const TEACHER_PASSWORD = "guru123"; // Ganti dengan password yang diinginkan
-        
-        // State Management
         let examState = {
-            isActive: false,
-            isPaused: false,
             duration: 0,
-            remainingTime: 0,
-            examName: "",
-            googleFormUrl: "",
-            interval: null
+            timeLeft: 0,
+            studentName: '',
+            googleFormUrl: '',
+            isActive: false,
+            violations: 0,
+            maxViolations: 3,
+            timer: null,
+            warningTimer: null
         };
 
-        // Anti-cheat variables
-        let studentName = "";
-        let violationCount = 0;
-        let maxViolations = 3;
-        let tabSwitchCount = 0;
-        let focusLostCount = 0;
-        let isFullscreen = false;
-        let antiCheatActive = false;
-
-        // Navigation
-        function showSection(sectionId) {
-            // Hide all sections
-            document.querySelectorAll('.section').forEach(section => {
-                section.classList.remove('active');
+        // Select duration
+        function selectDuration(minutes) {
+            document.querySelectorAll('.duration-option').forEach(opt => {
+                opt.classList.remove('selected');
             });
-            
-            // Remove active class from all nav buttons
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected section
-            document.getElementById(sectionId).classList.add('active');
-            
-            // Add active class to clicked button
-            event.target.classList.add('active');
+            event.target.closest('.duration-option').classList.add('selected');
+            examState.duration = minutes;
         }
 
-        // Student Registration
-        function registerStudent() {
-            const name = document.getElementById('student-name').value.trim();
-            if (!name) {
-                alert('Mohon masukkan nama lengkap Anda!');
-                return;
-            }
+        // Setup form submit
+        document.getElementById('setup-form').addEventListener('submit', function(e) {
+            e.preventDefault();
             
-            studentName = name;
-            document.getElementById('student-setup').style.display = 'none';
-            
-            // Initialize anti-cheat when student registers
-            initializeAntiCheat();
-            
-            alert(`Selamat datang, ${name}! Silakan tunggu guru memulai ujian.`);
-        }
-
-        // Teacher Login
-        function loginTeacher() {
-            const password = document.getElementById('teacher-password').value;
-            const errorDiv = document.getElementById('login-error');
-            
-            if (password === TEACHER_PASSWORD) {
-                showSection('teacher-panel');
-                document.getElementById('teacher-password').value = '';
-                errorDiv.style.display = 'none';
-                updateTeacherTimer();
-            } else {
-                errorDiv.style.display = 'block';
-                errorDiv.textContent = 'Password salah! Silakan coba lagi.';
-            }
-        }
-
-        // Logout
-        function logout() {
-            showSection('student');
-            document.getElementById('teacher-password').value = '';
-        }
-
-        // Set Exam Configuration
-        function setExam() {
-            const examName = document.getElementById('exam-name').value.trim();
-            const duration = parseInt(document.getElementById('exam-duration').value);
+            const studentName = document.getElementById('student-name').value.trim();
             const googleFormUrl = document.getElementById('google-form-url').value.trim();
             
-            if (!examName || !duration || duration <= 0) {
-                alert('Silakan isi nama ujian dan durasi yang valid!');
+            if (!studentName) {
+                alert('Silakan masukkan nama lengkap!');
                 return;
             }
             
-            examState.examName = examName;
-            examState.duration = duration * 60; // Convert to seconds
-            examState.remainingTime = examState.duration;
+            if (!googleFormUrl) {
+                alert('Silakan masukkan link Google Form!');
+                return;
+            }
+            
+            if (!examState.duration) {
+                alert('Silakan pilih durasi ujian!');
+                return;
+            }
+            
+            // Validate Google Form URL
+            if (!googleFormUrl.includes('docs.google.com/forms')) {
+                alert('Link Google Form tidak valid!');
+                return;
+            }
+            
+            examState.studentName = studentName;
             examState.googleFormUrl = googleFormUrl;
+            examState.timeLeft = examState.duration * 60; // Convert to seconds
             
-            // Update UI
-            document.getElementById('exam-title').textContent = examName;
-            document.getElementById('current-exam-title').textContent = examName;
-            document.getElementById('timer-status').style.display = 'block';
-            document.getElementById('timer-status').textContent = `Ujian "${examName}" telah diset untuk ${duration} menit`;
-            document.getElementById('timer-status').className = 'alert alert-success';
-            
-            updateTimerDisplay();
-            updateTeacherTimer();
-            
-            alert(`Ujian "${examName}" berhasil diset!`);
-        }
+            startExam();
+        });
 
-        // Start Exam
+        // Start exam
         function startExam() {
-            if (examState.duration <= 0) {
-                alert('Silakan set ujian terlebih dahulu!');
-                return;
-            }
+            // Hide setup screen
+            document.getElementById('setup-screen').style.display = 'none';
             
-            examState.isActive = true;
-            examState.isPaused = false;
-            antiCheatActive = true;
+            // Show exam screen
+            document.getElementById('exam-screen').style.display = 'block';
             
-            // Show exam interface to students
-            document.getElementById('exam-waiting').classList.add('hidden');
-            document.getElementById('exam-active').classList.remove('hidden');
+            // Set exam info
+            document.getElementById('exam-student-name').textContent = examState.studentName;
+            document.getElementById('exam-duration-display').textContent = examState.duration;
             
-            // Show Google Form if URL provided
-            if (examState.googleFormUrl) {
-                document.getElementById('google-form-container').classList.remove('hidden');
-                const formUrl = convertToEmbedUrl(examState.googleFormUrl);
-                document.getElementById('google-form-frame').src = formUrl;
-            }
+            // Load Google Form
+            document.getElementById('google-form-frame').src = examState.googleFormUrl;
             
-            // Force fullscreen for students
-            enterFullscreen();
-            document.getElementById('fullscreen-btn').style.display = 'block';
+            // Enter fullscreen and lock
+            enterFullscreenLock();
             
             // Start timer
+            examState.isActive = true;
+            updateTimerDisplay();
             startTimer();
             
-            // Ring bell to notify students
-            ringBell();
-            
-            // Update UI
-            document.getElementById('start-btn').textContent = '▶️ Resume';
+            // Enable anti-cheat protection
+            enableAntiCheat();
         }
 
-        // Pause Exam
-        function pauseExam() {
-            if (!examState.isActive) return;
-            
-            examState.isPaused = !examState.isPaused;
-            
-            if (examState.isPaused) {
-                clearInterval(examState.interval);
-            } else {
-                startTimer();
+        // Enter fullscreen and lock
+        function enterFullscreenLock() {
+            // Request fullscreen
+            const docElm = document.documentElement;
+            if (docElm.requestFullscreen) {
+                docElm.requestFullscreen();
+            } else if (docElm.webkitRequestFullScreen) {
+                docElm.webkitRequestFullScreen();
+            } else if (docElm.mozRequestFullScreen) {
+                docElm.mozRequestFullScreen();
+            } else if (docElm.msRequestFullscreen) {
+                docElm.msRequestFullscreen();
             }
+            
+            // Add exam mode class
+            document.body.classList.add('exam-mode');
         }
 
-        // Stop Exam
-        function stopExam() {
-            examState.isActive = false;
-            examState.isPaused = false;
-            antiCheatActive = false;
-            clearInterval(examState.interval);
-            
-            // Hide exam interface
-            document.getElementById('exam-waiting').classList.remove('hidden');
-            document.getElementById('exam-active').classList.add('hidden');
-            document.getElementById('google-form-container').classList.add('hidden');
-            document.getElementById('exam-ended').style.display = 'block';
-            document.getElementById('fullscreen-btn').style.display = 'none';
-            
-            // Exit fullscreen
-            exitFullscreen();
-            
-            // Ring bell to notify end
-            ringBell();
-            
-            // Update UI
-            document.getElementById('start-btn').textContent = '▶️ Mulai';
-            
-            // Show exam results
-            alert(`📊 Ujian Berakhir!\n\n👤 Nama: ${studentName}\n🚨 Total Pelanggaran: ${violationCount}/${maxViolations}\n📱 Tab Switch: ${tabSwitchCount} kali\n🎯 Focus Lost: ${focusLostCount} kali`);
-        }
-
-        // End exam manually by student
-        function endExamManually() {
-            if (confirm('Yakin ingin mengakhiri ujian? Pastikan Anda sudah submit jawaban di Google Form!')) {
-                stopExam();
-            }
-        }
-
-        // Reset All
-        function resetAll() {
-            if (confirm('Yakin ingin reset semua? Data ujian akan hilang.')) {
-                stopExam();
-                examState = {
-                    isActive: false,
-                    isPaused: false,
-                    duration: 0,
-                    remainingTime: 0,
-                    examName: "",
-                    googleFormUrl: "",
-                    interval: null
-                };
-                
-                // Reset anti-cheat
-                violationCount = 0;
-                tabSwitchCount = 0;
-                focusLostCount = 0;
-                antiCheatActive = false;
-                
-                // Reset UI
-                document.getElementById('exam-name').value = '';
-                document.getElementById('exam-duration').value = '';
-                document.getElementById('google-form-url').value = '';
-                document.getElementById('exam-title').textContent = 'Belum ada ujian yang diset';
-                document.getElementById('timer-status').style.display = 'none';
-                document.getElementById('exam-ended').style.display = 'none';
-                document.getElementById('time-warning').style.display = 'none';
-                document.getElementById('student-setup').style.display = 'block';
-                document.getElementById('student-name').value = '';
-                
-                updateTimerDisplay();
-                updateTeacherTimer();
-                updateStatusIndicators();
-            }
-        }
-
-        // Timer Functions
+        // Start timer
         function startTimer() {
-            examState.interval = setInterval(() => {
-                if (!examState.isPaused && examState.remainingTime > 0) {
-                    examState.remainingTime--;
-                    updateTimerDisplay();
-                    updateTeacherTimer();
-                    
-                    // Warning when 5 minutes left
-                    if (examState.remainingTime === 300) {
-                        document.getElementById('time-warning').style.display = 'block';
-                        ringBell();
-                    }
-                    
-                    // Time's up
-                    if (examState.remainingTime <= 0) {
-                        stopExam();
-                    }
+            examState.timer = setInterval(() => {
+                examState.timeLeft--;
+                updateTimerDisplay();
+                
+                // Time warnings
+                if (examState.timeLeft === 300) { // 5 minutes
+                    showTimeWarning('⚠️ Waktu tersisa 5 menit!');
+                } else if (examState.timeLeft === 60) { // 1 minute
+                    showTimeWarning('🚨 Waktu tersisa 1 menit!');
+                }
+                
+                // Time up
+                if (examState.timeLeft <= 0) {
+                    finishExam();
                 }
             }, 1000);
         }
 
+        // Update timer display
         function updateTimerDisplay() {
-            const display = formatTime(examState.remainingTime);
+            const hours = Math.floor(examState.timeLeft / 3600);
+            const minutes = Math.floor((examState.timeLeft % 3600) / 60);
+            const seconds = examState.timeLeft % 60;
+            
+            const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             document.getElementById('timer-display').textContent = display;
             
-            // Change color when time is running low
-            const timerDiv = document.getElementById('timer-display');
-            if (examState.remainingTime <= 300) { // 5 minutes
-                timerDiv.style.color = '#dc2626';
-            } else if (examState.remainingTime <= 600) { // 10 minutes
-                timerDiv.style.color = '#d97706';
+            const timerElement = document.getElementById('timer');
+            
+            if (examState.timeLeft <= 300) { // 5 minutes
+                timerElement.className = 'timer danger';
+            } else if (examState.timeLeft <= 600) { // 10 minutes
+                timerElement.className = 'timer warning';
             } else {
-                timerDiv.style.color = '#059669';
+                timerElement.className = 'timer';
             }
         }
 
-        function updateTeacherTimer() {
-            const display = formatTime(examState.remainingTime);
-            document.getElementById('teacher-timer').textContent = display;
-        }
-
-        function formatTime(seconds) {
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            
-            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        // Anti-cheat Functions
-        function initializeAntiCheat() {
-            // Disable right-click
-            document.addEventListener('contextmenu', function(e) {
-                if (antiCheatActive) {
-                    e.preventDefault();
-                    recordViolation('Right-click terdeteksi');
-                }
-            });
-
-            // Disable keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                if (!antiCheatActive) return;
-
-                const forbiddenKeys = ['F12', 'F5', 'Escape'];
-                const forbiddenCombos = [
-                    {ctrl: true, shift: true, keyCode: 73}, // Ctrl+Shift+I
-                    {ctrl: true, shift: true, keyCode: 74}, // Ctrl+Shift+J
-                    {ctrl: true, shift: true, keyCode: 67}, // Ctrl+Shift+C
-                    {ctrl: true, keyCode: 85}, // Ctrl+U
-                    {ctrl: true, keyCode: 82}, // Ctrl+R
-                    {alt: true, keyCode: 115}, // Alt+F4
-                    {ctrl: true, keyCode: 87}, // Ctrl+W
-                    {ctrl: true, keyCode: 84}, // Ctrl+T
-                ];
-
-                if (forbiddenKeys.includes(e.key)) {
-                    e.preventDefault();
-                    recordViolation(`Tombol terlarang: ${e.key}`);
-                    return;
-                }
-
-                for (let combo of forbiddenCombos) {
-                    if ((combo.ctrl && e.ctrlKey) && 
-                        (combo.shift ? e.shiftKey : !e.shift) && 
-                        (combo.alt ? e.altKey : !e.alt) && 
-                        combo.keyCode === e.keyCode) {
-                        e.preventDefault();
-                        recordViolation('Kombinasi tombol terlarang');
-                        return;
-                    }
-                }
-            });
-
-            // Detect tab switching
-            document.addEventListener('visibilitychange', function() {
-                if (!antiCheatActive) return;
-
-                if (document.hidden) {
-                    tabSwitchCount++;
-                    recordViolation('Berpindah tab atau aplikasi');
-                    updateTabStatus('danger');
-                } else {
-                    updateTabStatus('normal');
-                }
-            });
-
-            // Detect window focus loss
-            window.addEventListener('blur', function() {
-                if (!antiCheatActive) return;
-                
-                focusLostCount++;
-                recordViolation('Kehilangan fokus window');
-                updateFocusStatus('danger');
-            });
-
-            window.addEventListener('focus', function() {
-                if (!antiCheatActive) return;
-                updateFocusStatus('normal');
-            });
-
-            // Detect fullscreen changes
-            document.addEventListener('fullscreenchange', function() {
-                if (!antiCheatActive) return;
-
-                if (!document.fullscreenElement) {
-                    isFullscreen = false;
-                    recordViolation('Keluar dari fullscreen');
-                    updateFullscreenStatus('danger');
-                    
-                    // Try to re-enter fullscreen
-                    setTimeout(enterFullscreen, 1000);
-                } else {
-                    isFullscreen = true;
-                    updateFullscreenStatus('normal');
-                }
-            });
-
-            // Detect copy/paste attempts
-            document.addEventListener('copy', function(e) {
-                if (antiCheatActive) {
-                    e.preventDefault();
-                    recordViolation('Percobaan copy');
-                }
-            });
-
-            document.addEventListener('paste', function(e) {
-                if (antiCheatActive) {
-                    e.preventDefault();
-                    recordViolation('Percobaan paste');
-                }
-            });
-
-            // Detect developer tools
-            let devtools = {open: false, orientation: null};
-            const threshold = 160;
-
-            setInterval(function() {
-                if (!antiCheatActive) return;
-
-                if (window.outerHeight - window.innerHeight > threshold || 
-                    window.outerWidth - window.innerWidth > threshold) {
-                    if (!devtools.open) {
-                        devtools.open = true;
-                        recordViolation('Developer tools terdeteksi');
-                    }
-                } else {
-                    devtools.open = false;
-                }
-            }, 500);
-
-            updateStatusIndicators();
-        }
-
-        function recordViolation(reason) {
-            violationCount++;
-            console.log(`Violation ${violationCount}: ${reason} at ${new Date().toLocaleString()}`);
-            
-            showWarning(reason);
-            
-            if (violationCount >= maxViolations) {
-                setTimeout(function() {
-                    alert(`❌ Ujian berakhir karena terlalu banyak pelanggaran!\n\nTotal pelanggaran: ${violationCount}/${maxViolations}`);
-                    stopExam();
-                }, 2000);
-            }
-        }
-
-        function showWarning(reason) {
-            document.getElementById('warning-message').textContent = reason;
-            document.getElementById('violation-count').textContent = violationCount;
-            document.getElementById('warning-overlay').classList.add('show');
-        }
-
-        function hideWarning() {
-            document.getElementById('warning-overlay').classList.remove('show');
-            
-            // Try to re-enter fullscreen if needed
-            if (!document.fullscreenElement && antiCheatActive) {
-                enterFullscreen();
-            }
-        }
-
-        // Status indicator functions
-        function updateStatusIndicators() {
-            updateFocusStatus(document.hasFocus() ? 'normal' : 'danger');
-            updateFullscreenStatus(document.fullscreenElement ? 'normal' : 'danger');
-            updateTabStatus(document.hidden ? 'danger' : 'normal');
-        }
-
-        function updateFocusStatus(status) {
-            const element = document.getElementById('focus-status');
-            element.className = 'status-dot';
-            if (status === 'danger') element.classList.add('danger');
-            else if (status === 'warning') element.classList.add('warning');
-        }
-
-        function updateFullscreenStatus(status) {
-            const element = document.getElementById('fullscreen-status');
-            element.className = 'status-dot';
-            if (status === 'danger') element.classList.add('danger');
-            else if (status === 'warning') element.classList.add('warning');
-        }
-
-        function updateTabStatus(status) {
-            const element = document.getElementById('tab-status');
-            element.className = 'status-dot';
-            if (status === 'danger') element.classList.add('danger');
-            else if (status === 'warning') element.classList.add('warning');
-        }
-
-        // Fullscreen functions
-        function enterFullscreen() {
-            const elem = document.documentElement;
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen().catch(err => {
-                    console.log('Fullscreen request failed:', err);
-                });
-            } else if (elem.mozRequestFullScreen) {
-                elem.mozRequestFullScreen();
-            } else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen();
-            } else if (elem.msRequestFullscreen) {
-                elem.msRequestFullscreen();
-            }
-        }
-
-        function exitFullscreen() {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
-            }
-        }
-
-        function toggleFullscreen() {
-            if (document.fullscreenElement) {
-                exitFullscreen();
-            } else {
-                enterFullscreen();
-            }
-        }
-
-        // Utility functions
-        function convertToEmbedUrl(url) {
-            if (url.includes('forms.gle/')) {
-                return url;
-            } else if (url.includes('docs.google.com/forms/')) {
-                if (url.includes('/viewform')) {
-                    return url.replace('/viewform', '/viewform?embedded=true');
-                } else {
-                    return url + (url.includes('?') ? '&' : '?') + 'embedded=true';
-                }
-            }
-            return url;
-        }
-
-        // Bell Function
-        function ringBell() {
-            const bell = document.getElementById('bell-sound');
-            const container = document.querySelector('.container');
-            
-            // Visual bell animation
-            container.classList.add('bell-animation');
-            setTimeout(() => {
-                container.classList.remove('bell-animation');
-            }, 500);
-            
-            // Try to play sound (might not work due to browser autoplay policy)
-            try {
-                bell.currentTime = 0;
-                bell.play().catch(e => console.log('Audio autoplay blocked'));
-            } catch (e) {
-                console.log('Audio not supported');
-            }
-            
-            // Show visual notification
+        // Show time warning
+        function showTimeWarning(message) {
+            // Create popup notification
             const notification = document.createElement('div');
             notification.style.cssText = `
                 position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #4f46e5;
+                top: 100px;
+                right: 30px;
+                background: linear-gradient(135deg, #ef4444, #dc2626);
                 color: white;
-                padding: 15px 25px;
-                border-radius: 10px;
+                padding: 20px 30px;
+                border-radius: 15px;
+                font-size: 18px;
                 font-weight: bold;
-                z-index: 1000;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                z-index: 10001;
+                box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+                animation: slideInRight 0.5s ease-out;
             `;
-            notification.textContent = '🔔 BELL!';
+            notification.innerHTML = message;
+            
             document.body.appendChild(notification);
             
             setTimeout(() => {
-                document.body.removeChild(notification);
-            }, 2000);
+                if (document.body.contains(notification)) {
+                    document.body.removeChild(notification);
+                }
+            }, 5000);
         }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            updateTimerDisplay();
-            updateTeacherTimer();
-            updateStatusIndicators();
+        // Enable anti-cheat protection
+        function enableAntiCheat() {
+            // Prevent context menu
+            document.addEventListener('contextmenu', e => e.preventDefault());
             
-            // Allow Enter key for login
-            document.getElementById('teacher-password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    loginTeacher();
+            // Prevent keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S, etc.
+                if (
+                    e.key === 'F12' ||
+                    (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) ||
+                    (e.ctrlKey && (e.key === 'u' || e.key === 'U' || e.key === 's' || e.key === 'S')) ||
+                    (e.altKey && e.key === 'Tab') ||
+                    (e.ctrlKey && e.key === 'Tab') ||
+                    e.key === 'F5' ||
+                    (e.ctrlKey && e.key === 'r')
+                ) {
+                    e.preventDefault();
+                    triggerViolation('Mencoba menggunakan shortcut keyboard');
                 }
             });
-
-            // Allow Enter key for student name
-            document.getElementById('student-name').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    registerStudent();
+            
+            // Detect tab switch/window blur
+            document.addEventListener('visibilitychange', function() {
+                if (examState.isActive && document.hidden) {
+                    triggerViolation('Mencoba beralih tab/window');
                 }
             });
-
-            // Update status indicators periodically
-            setInterval(function() {
-                if (antiCheatActive) {
-                    updateStatusIndicators();
+            
+            window.addEventListener('blur', function() {
+                if (examState.isActive) {
+                    triggerViolation('Kehilangan focus dari window');
+                }
+            });
+            
+            // Detect fullscreen exit
+            document.addEventListener('fullscreenchange', function() {
+                if (examState.isActive && !document.fullscreenElement) {
+                    triggerViolation('Mencoba keluar dari fullscreen');
+                    // Force back to fullscreen
+                    setTimeout(enterFullscreenLock, 100);
+                }
+            });
+            
+            // Prevent page refresh/navigation
+            window.addEventListener('beforeunload', function(e) {
+                if (examState.isActive) {
+                    e.preventDefault();
+                    e.returnValue = 'Ujian sedang berlangsung!';
+                    triggerViolation('Mencoba keluar dari halaman');
+                }
+            });
+            
+            // Monitor developer tools (basic detection)
+            let devtools = {
+                open: false,
+                orientation: null
+            };
+            
+            setInterval(() => {
+                if (examState.isActive) {
+                    if (window.outerHeight - window.innerHeight > 200 || 
+                        window.outerWidth - window.innerWidth > 200) {
+                        if (!devtools.open) {
+                            devtools.open = true;
+                            triggerViolation('Mencoba membuka Developer Tools');
+                        }
+                    } else {
+                        devtools.open = false;
+                    }
                 }
             }, 1000);
-        });
+        }
 
-        // Prevent page refresh during exam
-        window.addEventListener('beforeunload', function(e) {
-            if (examState.isActive) {
-                e.preventDefault();
-                e.returnValue = '';
-                return 'Ujian sedang berlangsung. Yakin ingin keluar?';
+        // Trigger violation
+        function triggerViolation(reason) {
+            examState.violations++;
+            
+            console.log(`Violation ${examState.violations}: ${reason}`);
+            
+            if (examState.violations >= examState.maxViolations) {
+                disqualifyStudent();
+            } else {
+                showViolationWarning();
             }
-        });
+        }
 
-        // Additional security: Detect if user tries to open new window
-        window.addEventListener('blur', function() {
-            if (antiCheatActive && document.visibilityState === 'visible') {
-                recordViolation('Membuka window baru');
+        // Show violation warning
+        function showViolationWarning() {
+            document.getElementById('violation-count').textContent = examState.violations;
+            document.getElementById('cheat-warning').style.display = 'flex';
+            
+            let countdown = 10;
+            document.getElementById('warning-countdown').textContent = countdown;
+            
+            examState.warningTimer = setInterval(() => {
+                countdown--;
+                document.getElementById('warning-countdown').textContent = countdown;
+                
+                if (countdown <= 0) {
+                    clearInterval(examState.warningTimer);
+                    document.getElementById('cheat-warning').style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        // Disqualify student
+        function disqualifyStudent() {
+            clearInterval(examState.timer);
+            examState.isActive = false;
+            document.getElementById('disqualified-modal').style.display = 'flex';
+        }
+
+        // Finish exam
+        function finishExam() {
+            clearInterval(examState.timer);
+            examState.isActive = false;
+            document.getElementById('finish-modal').style.display = 'flex';
+        }
+
+        // Exit exam
+        function exitExam() {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
             }
-        });
+            
+            // Remove exam mode
+            document.body.classList.remove('exam-mode');
+            
+            // Reset and show setup screen
+            location.reload();
+        }
+
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
