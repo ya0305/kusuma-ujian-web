@@ -15,7 +15,10 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            overflow: hidden; /* Prevent scrolling when locked */
+        }
+
+        body.exam-mode {
+            overflow: hidden;
         }
 
         /* Setup Screen */
@@ -158,9 +161,6 @@
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
-            z-index: 10000;
         }
 
         .student-info {
@@ -205,9 +205,9 @@
         }
 
         .exam-content {
-            height: calc(100vh - 80px);
+            height: calc(100vh - 90px);
             padding: 20px;
-            overflow: auto;
+            overflow-y: auto;
         }
 
         .exam-card {
@@ -217,7 +217,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             margin: 0 auto;
             max-width: 1000px;
-            height: calc(100vh - 120px);
+            min-height: calc(100vh - 130px);
             display: flex;
             flex-direction: column;
         }
@@ -244,12 +244,14 @@
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            min-height: 500px;
         }
 
         .google-form-frame {
             width: 100%;
             height: 100%;
             border: none;
+            min-height: 600px;
         }
 
         /* Anti-Cheating Overlay */
@@ -332,15 +334,77 @@
         .warning-icon-modal { color: #f59e0b; }
         .danger-icon { color: #ef4444; }
 
-        /* Fullscreen styles */
-        body.exam-mode {
-            overflow: hidden;
+        /* Scrollbar untuk exam content */
+        .exam-content::-webkit-scrollbar {
+            width: 8px;
         }
 
-        /* Hide scrollbars completely */
-        ::-webkit-scrollbar {
-            width: 0px;
-            background: transparent;
+        .exam-content::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        .exam-content::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+
+        .exam-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
+        /* Animation untuk notifikasi */
+        @keyframes slideInRight {
+            from { 
+                transform: translateX(100%); 
+                opacity: 0; 
+            }
+            to { 
+                transform: translateX(0); 
+                opacity: 1; 
+            }
+        }
+
+        .notification {
+            position: fixed;
+            top: 100px;
+            right: 30px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 10001;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+            animation: slideInRight 0.5s ease-out;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .setup-card {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .duration-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .exam-header {
+                padding: 10px 15px;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .student-info {
+                font-size: 14px;
+            }
+            
+            .timer {
+                font-size: 18px;
+                padding: 10px 15px;
+            }
         }
     </style>
 </head>
@@ -367,27 +431,27 @@
                 <div class="form-group">
                     <label>Durasi Ujian:</label>
                     <div class="duration-grid">
-                        <div class="duration-option" onclick="selectDuration(30)">
+                        <div class="duration-option" data-duration="30">
                             <div style="font-size: 20px;">30</div>
                             <div style="font-size: 12px;">menit</div>
                         </div>
-                        <div class="duration-option" onclick="selectDuration(60)">
+                        <div class="duration-option" data-duration="60">
                             <div style="font-size: 20px;">60</div>
                             <div style="font-size: 12px;">menit</div>
                         </div>
-                        <div class="duration-option" onclick="selectDuration(90)">
+                        <div class="duration-option" data-duration="90">
                             <div style="font-size: 20px;">90</div>
                             <div style="font-size: 12px;">menit</div>
                         </div>
-                        <div class="duration-option" onclick="selectDuration(120)">
+                        <div class="duration-option" data-duration="120">
                             <div style="font-size: 20px;">120</div>
                             <div style="font-size: 12px;">menit</div>
                         </div>
-                        <div class="duration-option" onclick="selectDuration(150)">
+                        <div class="duration-option" data-duration="150">
                             <div style="font-size: 20px;">150</div>
                             <div style="font-size: 12px;">menit</div>
                         </div>
-                        <div class="duration-option" onclick="selectDuration(180)">
+                        <div class="duration-option" data-duration="180">
                             <div style="font-size: 20px;">180</div>
                             <div style="font-size: 12px;">menit</div>
                         </div>
@@ -478,17 +542,24 @@
             violations: 0,
             maxViolations: 3,
             timer: null,
-            warningTimer: null
+            warningTimer: null,
+            isFullscreen: false
         };
 
-        // Select duration
-        function selectDuration(minutes) {
-            document.querySelectorAll('.duration-option').forEach(opt => {
-                opt.classList.remove('selected');
+        // Initialize duration selection
+        document.addEventListener('DOMContentLoaded', function() {
+            const durationOptions = document.querySelectorAll('.duration-option');
+            durationOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove selected from all options
+                    durationOptions.forEach(opt => opt.classList.remove('selected'));
+                    // Add selected to clicked option
+                    this.classList.add('selected');
+                    // Set duration
+                    examState.duration = parseInt(this.dataset.duration);
+                });
             });
-            event.target.closest('.duration-option').classList.add('selected');
-            examState.duration = minutes;
-        }
+        });
 
         // Setup form submit
         document.getElementById('setup-form').addEventListener('submit', function(e) {
@@ -527,52 +598,82 @@
 
         // Start exam
         function startExam() {
-            // Hide setup screen
-            document.getElementById('setup-screen').style.display = 'none';
-            
-            // Show exam screen
-            document.getElementById('exam-screen').style.display = 'block';
-            
-            // Set exam info
-            document.getElementById('exam-student-name').textContent = examState.studentName;
-            document.getElementById('exam-duration-display').textContent = examState.duration;
-            
-            // Load Google Form
-            document.getElementById('google-form-frame').src = examState.googleFormUrl;
-            
-            // Enter fullscreen and lock
-            enterFullscreenLock();
-            
-            // Start timer
-            examState.isActive = true;
-            updateTimerDisplay();
-            startTimer();
-            
-            // Enable anti-cheat protection
-            enableAntiCheat();
+            try {
+                // Hide setup screen
+                document.getElementById('setup-screen').style.display = 'none';
+                
+                // Show exam screen
+                document.getElementById('exam-screen').style.display = 'block';
+                
+                // Set exam info
+                document.getElementById('exam-student-name').textContent = examState.studentName;
+                document.getElementById('exam-duration-display').textContent = examState.duration;
+                
+                // Load Google Form
+                const iframe = document.getElementById('google-form-frame');
+                iframe.src = examState.googleFormUrl;
+                
+                // Enter fullscreen and lock
+                enterFullscreenLock();
+                
+                // Start timer
+                examState.isActive = true;
+                updateTimerDisplay();
+                startTimer();
+                
+                // Enable anti-cheat protection after a delay
+                setTimeout(() => {
+                    enableAntiCheat();
+                }, 1000);
+                
+                console.log('Ujian dimulai successfully');
+                
+            } catch (error) {
+                console.error('Error starting exam:', error);
+                alert('Terjadi kesalahan saat memulai ujian. Silakan refresh halaman dan coba lagi.');
+            }
         }
 
         // Enter fullscreen and lock
         function enterFullscreenLock() {
-            // Request fullscreen
-            const docElm = document.documentElement;
-            if (docElm.requestFullscreen) {
-                docElm.requestFullscreen();
-            } else if (docElm.webkitRequestFullScreen) {
-                docElm.webkitRequestFullScreen();
-            } else if (docElm.mozRequestFullScreen) {
-                docElm.mozRequestFullScreen();
-            } else if (docElm.msRequestFullscreen) {
-                docElm.msRequestFullscreen();
+            try {
+                // Request fullscreen
+                const docElm = document.documentElement;
+                
+                const requestFullscreen = docElm.requestFullscreen || 
+                                        docElm.webkitRequestFullScreen || 
+                                        docElm.mozRequestFullScreen || 
+                                        docElm.msRequestFullscreen;
+                
+                if (requestFullscreen) {
+                    requestFullscreen.call(docElm).then(() => {
+                        examState.isFullscreen = true;
+                        console.log('Fullscreen activated');
+                    }).catch(err => {
+                        console.warn('Fullscreen failed:', err);
+                        // Continue without fullscreen
+                    });
+                } else {
+                    console.warn('Fullscreen not supported');
+                }
+                
+                // Add exam mode class
+                document.body.classList.add('exam-mode');
+                
+            } catch (error) {
+                console.error('Error entering fullscreen:', error);
             }
-            
-            // Add exam mode class
-            document.body.classList.add('exam-mode');
         }
 
         // Start timer
         function startTimer() {
+            if (examState.timer) {
+                clearInterval(examState.timer);
+            }
+            
             examState.timer = setInterval(() => {
+                if (!examState.isActive) return;
+                
                 examState.timeLeft--;
                 updateTimerDisplay();
                 
@@ -597,126 +698,139 @@
             const seconds = examState.timeLeft % 60;
             
             const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            document.getElementById('timer-display').textContent = display;
+            const timerDisplay = document.getElementById('timer-display');
+            if (timerDisplay) {
+                timerDisplay.textContent = display;
+            }
             
             const timerElement = document.getElementById('timer');
-            
-            if (examState.timeLeft <= 300) { // 5 minutes
-                timerElement.className = 'timer danger';
-            } else if (examState.timeLeft <= 600) { // 10 minutes
-                timerElement.className = 'timer warning';
-            } else {
-                timerElement.className = 'timer';
+            if (timerElement) {
+                if (examState.timeLeft <= 300) { // 5 minutes
+                    timerElement.className = 'timer danger';
+                } else if (examState.timeLeft <= 600) { // 10 minutes
+                    timerElement.className = 'timer warning';
+                } else {
+                    timerElement.className = 'timer';
+                }
             }
         }
 
         // Show time warning
         function showTimeWarning(message) {
-            // Create popup notification
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 100px;
-                right: 30px;
-                background: linear-gradient(135deg, #ef4444, #dc2626);
-                color: white;
-                padding: 20px 30px;
-                border-radius: 15px;
-                font-size: 18px;
-                font-weight: bold;
-                z-index: 10001;
-                box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
-                animation: slideInRight 0.5s ease-out;
-            `;
-            notification.innerHTML = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                if (document.body.contains(notification)) {
-                    document.body.removeChild(notification);
-                }
-            }, 5000);
+            try {
+                // Create notification
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.innerHTML = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 5000);
+                
+            } catch (error) {
+                console.error('Error showing warning:', error);
+            }
         }
 
         // Enable anti-cheat protection
         function enableAntiCheat() {
-            // Prevent context menu
-            document.addEventListener('contextmenu', e => e.preventDefault());
+            if (!examState.isActive) return;
             
-            // Prevent keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                // Prevent F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U, Ctrl+S, etc.
-                if (
-                    e.key === 'F12' ||
-                    (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'J')) ||
-                    (e.ctrlKey && (e.key === 'u' || e.key === 'U' || e.key === 's' || e.key === 'S')) ||
-                    (e.altKey && e.key === 'Tab') ||
-                    (e.ctrlKey && e.key === 'Tab') ||
-                    e.key === 'F5' ||
-                    (e.ctrlKey && e.key === 'r')
-                ) {
-                    e.preventDefault();
-                    triggerViolation('Mencoba menggunakan shortcut keyboard');
-                }
-            });
+            try {
+                // Prevent context menu
+                document.addEventListener('contextmenu', handleContextMenu);
+                
+                // Prevent keyboard shortcuts
+                document.addEventListener('keydown', handleKeyDown);
+                
+                // Detect tab switch/window blur
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                window.addEventListener('blur', handleWindowBlur);
+                
+                // Detect fullscreen exit
+                document.addEventListener('fullscreenchange', handleFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+                
+                // Prevent page refresh/navigation
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                
+                console.log('Anti-cheat protection enabled');
+                
+            } catch (error) {
+                console.error('Error enabling anti-cheat:', error);
+            }
+        }
+
+        // Event handlers
+        function handleContextMenu(e) {
+            e.preventDefault();
+            triggerViolation('Mencoba membuka context menu');
+        }
+
+        function handleKeyDown(e) {
+            if (!examState.isActive) return;
             
-            // Detect tab switch/window blur
-            document.addEventListener('visibilitychange', function() {
-                if (examState.isActive && document.hidden) {
-                    triggerViolation('Mencoba beralih tab/window');
-                }
-            });
+            // Prevent dangerous key combinations
+            if (
+                e.key === 'F12' ||
+                (e.ctrlKey && e.shiftKey && ['I', 'C', 'J'].includes(e.key.toUpperCase())) ||
+                (e.ctrlKey && ['U', 'S', 'R'].includes(e.key.toUpperCase())) ||
+                (e.altKey && e.key === 'Tab') ||
+                (e.ctrlKey && e.key === 'Tab') ||
+                e.key === 'F5'
+            ) {
+                e.preventDefault();
+                triggerViolation('Mencoba menggunakan shortcut keyboard terlarang');
+            }
+        }
+
+        function handleVisibilityChange() {
+            if (examState.isActive && document.hidden) {
+                triggerViolation('Mencoba beralih tab/window');
+            }
+        }
+
+        function handleWindowBlur() {
+            if (examState.isActive) {
+                triggerViolation('Kehilangan focus dari window');
+            }
+        }
+
+        function handleFullscreenChange() {
+            const isFullscreen = !!(document.fullscreenElement || 
+                                   document.webkitFullscreenElement || 
+                                   document.mozFullScreenElement || 
+                                   document.msFullscreenElement);
             
-            window.addEventListener('blur', function() {
-                if (examState.isActive) {
-                    triggerViolation('Kehilangan focus dari window');
-                }
-            });
+            if (examState.isActive && examState.isFullscreen && !isFullscreen) {
+                triggerViolation('Mencoba keluar dari fullscreen');
+                // Try to re-enter fullscreen
+                setTimeout(enterFullscreenLock, 100);
+            }
             
-            // Detect fullscreen exit
-            document.addEventListener('fullscreenchange', function() {
-                if (examState.isActive && !document.fullscreenElement) {
-                    triggerViolation('Mencoba keluar dari fullscreen');
-                    // Force back to fullscreen
-                    setTimeout(enterFullscreenLock, 100);
-                }
-            });
-            
-            // Prevent page refresh/navigation
-            window.addEventListener('beforeunload', function(e) {
-                if (examState.isActive) {
-                    e.preventDefault();
-                    e.returnValue = 'Ujian sedang berlangsung!';
-                    triggerViolation('Mencoba keluar dari halaman');
-                }
-            });
-            
-            // Monitor developer tools (basic detection)
-            let devtools = {
-                open: false,
-                orientation: null
-            };
-            
-            setInterval(() => {
-                if (examState.isActive) {
-                    if (window.outerHeight - window.innerHeight > 200 || 
-                        window.outerWidth - window.innerWidth > 200) {
-                        if (!devtools.open) {
-                            devtools.open = true;
-                            triggerViolation('Mencoba membuka Developer Tools');
-                        }
-                    } else {
-                        devtools.open = false;
-                    }
-                }
-            }, 1000);
+            examState.isFullscreen = isFullscreen;
+        }
+
+        function handleBeforeUnload(e) {
+            if (examState.isActive) {
+                e.preventDefault();
+                e.returnValue = 'Ujian sedang berlangsung!';
+                triggerViolation('Mencoba keluar dari halaman');
+                return 'Ujian sedang berlangsung!';
+            }
         }
 
         // Trigger violation
         function triggerViolation(reason) {
-            examState.violations++;
+            if (!examState.isActive) return;
             
+            examState.violations++;
             console.log(`Violation ${examState.violations}: ${reason}`);
             
             if (examState.violations >= examState.maxViolations) {
@@ -728,66 +842,275 @@
 
         // Show violation warning
         function showViolationWarning() {
-            document.getElementById('violation-count').textContent = examState.violations;
-            document.getElementById('cheat-warning').style.display = 'flex';
-            
-            let countdown = 10;
-            document.getElementById('warning-countdown').textContent = countdown;
-            
-            examState.warningTimer = setInterval(() => {
-                countdown--;
-                document.getElementById('warning-countdown').textContent = countdown;
-                
-                if (countdown <= 0) {
-                    clearInterval(examState.warningTimer);
-                    document.getElementById('cheat-warning').style.display = 'none';
+            try {
+                const violationElement = document.getElementById('violation-count');
+                if (violationElement) {
+                    violationElement.textContent = examState.violations;
                 }
-            }, 1000);
+                
+                const warningOverlay = document.getElementById('cheat-warning');
+                if (warningOverlay) {
+                    warningOverlay.style.display = 'flex';
+                }
+                
+                let countdown = 10;
+                const countdownElement = document.getElementById('warning-countdown');
+                if (countdownElement) {
+                    countdownElement.textContent = countdown;
+                }
+                
+                if (examState.warningTimer) {
+                    clearInterval(examState.warningTimer);
+                }
+                
+                examState.warningTimer = setInterval(() => {
+                    countdown--;
+                    if (countdownElement) {
+                        countdownElement.textContent = countdown;
+                    }
+                    
+                    if (countdown <= 0) {
+                        clearInterval(examState.warningTimer);
+                        if (warningOverlay) {
+                            warningOverlay.style.display = 'none';
+                        }
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error showing violation warning:', error);
+            }
         }
 
         // Disqualify student
         function disqualifyStudent() {
-            clearInterval(examState.timer);
-            examState.isActive = false;
-            document.getElementById('disqualified-modal').style.display = 'flex';
+            try {
+                if (examState.timer) {
+                    clearInterval(examState.timer);
+                }
+                examState.isActive = false;
+                
+                const modal = document.getElementById('disqualified-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+                
+            } catch (error) {
+                console.error('Error disqualifying student:', error);
+            }
         }
 
         // Finish exam
         function finishExam() {
-            clearInterval(examState.timer);
-            examState.isActive = false;
-            document.getElementById('finish-modal').style.display = 'flex';
+            try {
+                if (examState.timer) {
+                    clearInterval(examState.timer);
+                }
+                examState.isActive = false;
+                
+                const modal = document.getElementById('finish-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                }
+                
+            } catch (error) {
+                console.error('Error finishing exam:', error);
+            }
         }
 
         // Exit exam
         function exitExam() {
-            // Exit fullscreen
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-                document.webkitExitFullscreen();
-            } else if (document.mozCancelFullScreen) {
-                document.mozCancelFullScreen();
-            } else if (document.msExitFullscreen) {
-                document.msExitFullscreen();
+            try {
+                // Clear all timers
+                if (examState.timer) {
+                    clearInterval(examState.timer);
+                }
+                if (examState.warningTimer) {
+                    clearInterval(examState.warningTimer);
+                }
+                
+                examState.isActive = false;
+                
+                // Exit fullscreen
+                const exitFullscreen = document.exitFullscreen || 
+                                      document.webkitExitFullscreen || 
+                                      document.mozCancelFullScreen || 
+                                      document.msExitFullscreen;
+                
+                if (exitFullscreen) {
+                    exitFullscreen.call(document).catch(err => {
+                        console.warn('Exit fullscreen failed:', err);
+                    });
+                }
+                
+                // Remove exam mode
+                document.body.classList.remove('exam-mode');
+                
+                // Remove event listeners
+                removeEventListeners();
+                
+                // Reset and show setup screen
+                setTimeout(() => {
+                    location.reload();
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error exiting exam:', error);
+                location.reload();
             }
-            
-            // Remove exam mode
-            document.body.classList.remove('exam-mode');
-            
-            // Reset and show setup screen
-            location.reload();
         }
 
-        // Add CSS animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideInRight {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
+        // Remove event listeners
+        function removeEventListeners() {
+            try {
+                document.removeEventListener('contextmenu', handleContextMenu);
+                document.removeEventListener('keydown', handleKeyDown);
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+                window.removeEventListener('blur', handleWindowBlur);
+                document.removeEventListener('fullscreenchange', handleFullscreenChange);
+                document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+                document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+                document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            } catch (error) {
+                console.error('Error removing event listeners:', error);
             }
-        `;
-        document.head.appendChild(style);
+        }
+
+        // Developer tools detection (improved)
+        let devtools = {
+            open: false,
+            orientation: null,
+            checkInterval: null
+        };
+
+        function startDevToolsDetection() {
+            if (!examState.isActive) return;
+            
+            devtools.checkInterval = setInterval(() => {
+                if (!examState.isActive) {
+                    clearInterval(devtools.checkInterval);
+                    return;
+                }
+                
+                const heightThreshold = window.outerHeight - window.innerHeight > 200;
+                const widthThreshold = window.outerWidth - window.innerWidth > 300;
+                
+                if (heightThreshold || widthThreshold) {
+                    if (!devtools.open) {
+                        devtools.open = true;
+                        triggerViolation('Mencoba membuka Developer Tools');
+                    }
+                } else {
+                    devtools.open = false;
+                }
+            }, 2000);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Sistem ujian online dimuat');
+            
+            // Test Google Form URL format
+            document.getElementById('google-form-url').addEventListener('input', function() {
+                const url = this.value.trim();
+                if (url && !url.includes('docs.google.com/forms')) {
+                    this.style.borderColor = '#ef4444';
+                } else {
+                    this.style.borderColor = '#e2e8f0';
+                }
+            });
+        });
+
+        // Enhanced iframe error handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('google-form-frame');
+            
+            iframe.addEventListener('load', function() {
+                console.log('Google Form loaded successfully');
+            });
+            
+            iframe.addEventListener('error', function() {
+                console.error('Error loading Google Form');
+                showTimeWarning('❌ Error memuat Google Form');
+            });
+        });
+
+        // Prevent common bypass attempts
+        (function() {
+            // Override console methods during exam
+            let originalConsole = {};
+            
+            function disableConsole() {
+                if (examState.isActive) {
+                    Object.keys(console).forEach(key => {
+                        if (typeof console[key] === 'function') {
+                            originalConsole[key] = console[key];
+                            console[key] = function() {
+                                triggerViolation('Mencoba menggunakan console');
+                            };
+                        }
+                    });
+                }
+            }
+            
+            function enableConsole() {
+                Object.keys(originalConsole).forEach(key => {
+                    console[key] = originalConsole[key];
+                });
+            }
+            
+            // Monitor for exam state changes
+            let lastActiveState = false;
+            setInterval(() => {
+                if (examState.isActive !== lastActiveState) {
+                    if (examState.isActive) {
+                        disableConsole();
+                        startDevToolsDetection();
+                    } else {
+                        enableConsole();
+                        if (devtools.checkInterval) {
+                            clearInterval(devtools.checkInterval);
+                        }
+                    }
+                    lastActiveState = examState.isActive;
+                }
+            }, 1000);
+        })();
+
+        // Network monitoring (basic)
+        function monitorNetwork() {
+            if (!navigator.onLine) {
+                showTimeWarning('⚠️ Koneksi internet terputus!');
+            }
+        }
+
+        window.addEventListener('online', () => {
+            if (examState.isActive) {
+                showTimeWarning('✅ Koneksi internet pulih');
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            if (examState.isActive) {
+                showTimeWarning('❌ Koneksi internet terputus!');
+            }
+        });
+
+        // Final security check
+        setInterval(() => {
+            if (examState.isActive) {
+                // Check if page is still focused
+                if (!document.hasFocus()) {
+                    console.warn('Page lost focus');
+                }
+                
+                // Check for suspicious window properties
+                if (window.outerWidth === 0 || window.outerHeight === 0) {
+                    triggerViolation('Window tersembunyi atau diminimize');
+                }
+            }
+        }, 3000);
     </script>
 </body>
 </html>
